@@ -1,0 +1,13 @@
+function [recordingState, recordingResult] = stopAndFinalize(recordingState, robotAppState, scene, ...
+        initialActiveNodeCounts, hairAppState)
+%STOPANDFINALIZE End the active recording of an interactive session and
+%   write its outputs (trajectory, cut events, metrics) -- what the Record
+%   button's "Stop" and closing the window both do.
+
+recordingState = hairsim.app.recording.endSession(recordingState);
+config = hairsim.control.createRobotHaircutConfig(scene.paths, recordingState.runPaths, ...
+    'Mode', "interactive", 'ToolMount', robotAppState.modelContext.toolMount);
+[recordingState, recordingResult] = hairsim.app.recording.finalizeSession(recordingState, ...
+    robotAppState.modelContext, scene.paths, scene.headScene.headMeshSafetyWorld, ...
+    initialActiveNodeCounts, hairAppState.hairLayer.haircutState, {}, config);
+end

@@ -1,0 +1,10 @@
+# Generated run outputs and replay bundles (multi-GB .mat files)
+outputs/
+
+# Logs and editor/OS clutter
+*.log
+*.asv
+.DS_Store
+
+# Plan caches written by the interactive entries (config/plans/<len>/<method>/<region>.mat)
+config/plans/

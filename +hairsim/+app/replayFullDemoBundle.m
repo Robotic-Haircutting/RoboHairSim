@@ -32,10 +32,6 @@ arguments
     options.PlanningDataDir (1, 1) string = ""
     options.RunId (1, 1) string = ""
     options.ShowScene (1, 1) logical = true
-    % Guard-comb height (m) of the geometric flat-blade cut model
-    % (hairsim.hair.cutting.createGuardBladeCutModel). NaN (default) = the
-    % bundle planner's comb-lift clipper cut model.
-    options.GuardBladeHeightM (1, 1) double = nan
     % Optional video of the replay (needs ShowScene): every VideoFrameStride-th
     % tick is written to VideoPath (MPEG-4) at VideoFps. "" = no video.
     options.VideoPath (1, 1) string = ""
@@ -90,10 +86,6 @@ scene = hairsim.api.loadScene(sceneArgs{:});
 
 robotAppState = hairsim.app.robot.createRobotAppState(bundle.meta.adapterName, scene);
 hairAppState = hairsim.app.hair.createHairAppState(scene);
-if ~isnan(options.GuardBladeHeightM)
-    hairAppState.hairLayer.cutting.model = hairsim.hair.cutting.createGuardBladeCutModel( ...
-        scene.headScene.headMeshWorld, robotAppState.modelContext.toolMount, options.GuardBladeHeightM);
-end
 if isfield(bundle.meta, 'plannerName')
     % a camClipper-family bundle was cut by its preset's comb-lift clipper model
     cutModel = hairsim.hair.cutting.createCombLiftCutModelForPlanner(bundle.meta.plannerName, ...

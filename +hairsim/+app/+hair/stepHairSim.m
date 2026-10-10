@@ -1,4 +1,4 @@
-function [appState, hairStepResult] = stepHairSim(appState, T_world_ee, cutFlag, headHullWorld, floorZ, options)
+function [appState, hairStepResult] = stepHairSim(appState, T_world_ee, cutFlag, floorZ, options)
 %STEPHAIRSIM Advance cutting/physics/debris one frame; thin wrapper around
 %   hairsim.hair.updateHairLayerForClipper.
 %
@@ -11,11 +11,10 @@ arguments
     appState (1, 1) struct
     T_world_ee (4, 4) double
     cutFlag (1, 1) logical
-    headHullWorld (1, 1) struct
     floorZ (1, 1) double {mustBeFinite}
     options.SkipCutting (1, 1) logical = false   % idle frame: physics + debris only
 end
 [appState.hairLayer, hairStepResult] = hairsim.hair.updateHairLayerForClipper( ...
-    appState.hairLayer, T_world_ee, cutFlag, headHullWorld, floorZ, ...
+    appState.hairLayer, T_world_ee, cutFlag, floorZ, ...
     'SkipCutting', options.SkipCutting);
 end

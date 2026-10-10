@@ -104,7 +104,7 @@ while executionState.isActive
         headRadiusApproxM = 0.5 * max(options.HeadScene.headMeshWorld.bboxSize);
         floorZ = options.HeadScene.headMeshWorld.bboxMin(3) - 0.35 * headRadiusApproxM;
         [hairLayer, hairUpdateInfo] = hairsim.hair.updateHairLayerForClipper( ...
-            hairLayer, T_world_ee, poseCommand.cutFlag, options.HeadScene.headHullWorld, floorZ);
+            hairLayer, T_world_ee, poseCommand.cutFlag, floorZ);
         if hairUpdateInfo.shouldRender
             hairsim.hair.render.updateHaircutLayerOverlay(ax, hairLayer.haircutState);
         end

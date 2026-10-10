@@ -1,8 +1,7 @@
 function haircutState = stepHaircutPhysics(haircutState, headCollision, options)
 %STEPHAIRCUTPHYSICS Advance reusable haircut hair dynamics.
 %   headCollision: the exact head mesh query
-%   (hairsim.tool.createHeadDistanceQuery, preferred), a head convex hull
-%   (hairsim.hair.model.transformHeadConvexHullSafetyModel), or [] for none.
+%   (hairsim.tool.createHeadDistanceQuery), or [] for none.
 %   After the constraints and the collision the node velocities are taken
 %   from the position change of the step, so a correction the constraints
 %   or the collision make is not undone by velocity built up before it.
@@ -35,13 +34,8 @@ hairState = hairsim.hair.dynamics.stepGuideHairPhysics(hairState, ...
     'StrandIndices', strandIndices);
 
 if ~isempty(headCollision)
-    if isfield(headCollision, 'normalsWorld')          % convex hull
-        hairState = hairsim.hair.dynamics.applyGuideHairHeadHullClearance( ...
-            hairState, headCollision, options.HeadClearanceM, 'StrandIndices', strandIndices);
-    else                                               % exact mesh
-        hairState = hairsim.hair.dynamics.applyGuideHairHeadMeshClearance( ...
-            hairState, headCollision, options.HeadClearanceM, 'StrandIndices', strandIndices);
-    end
+    hairState = hairsim.hair.dynamics.applyGuideHairHeadMeshClearance( ...
+        hairState, headCollision, options.HeadClearanceM, 'StrandIndices', strandIndices);
 end
 
 % velocity from the position change of the step (active nodes, root excepted)

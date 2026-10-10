@@ -6,9 +6,8 @@ function scene = loadScene(options)
 %   sibling of the matlab folder), every path here is overridable, so you
 %   can point this at your own head-scan data instead of the bundled
 %   placeholder in HairSimApp/data: scene = hairsim.api.loadScene(
-%   'DataDir', '/path/to/your/data') uses HeadScan.stl, hair_roots.json,
-%   HeadScan_convex_hull.json, HeadScan_mesh_safety.json and
-%   head_regions.json from that folder instead (same file names and
+%   'DataDir', '/path/to/your/data') uses HeadScan.stl, hair_roots.json
+%   and head_regions.json from that folder instead (same file names and
 %   formats the bundled placeholder uses -- see docs/EXTENDING.md).
 %
 %   options.PlanningDataDir is the root the sessions read config/ from and
@@ -52,13 +51,10 @@ paths.data = dataDir;
 paths.outputs = outputsDir;
 paths.headStl = fullfile(dataDir, 'HeadScan.stl');
 paths.hairRoots = fullfile(dataDir, 'hair_roots.json');
-paths.headConvexHullJson = fullfile(dataDir, 'HeadScan_convex_hull.json');
-paths.headMeshSafetyJson = fullfile(dataDir, 'HeadScan_mesh_safety.json');
 paths.clipperDisplayStl = fullfile(dataDir, 'HairClipper.stl');
 paths.clipperTrajectoryCsv = fullfile(outputsDir, 'clipper_trajectory.csv');
 
-headScene = hairsim.createDefaultHeadScene(paths.headStl, paths.headConvexHullJson, ...
-    'HeadMeshSafetyJsonPath', paths.headMeshSafetyJson);
+headScene = hairsim.createDefaultHeadScene(paths.headStl);
 hairLayer = hairsim.hair.createDefaultHairLayer(paths.hairRoots, ...
     headScene.headMeshLocal, headScene.T_world_head, headScene.headScaleFactor);
 

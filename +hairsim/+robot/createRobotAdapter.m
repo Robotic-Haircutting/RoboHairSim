@@ -10,7 +10,7 @@ function adapter = createRobotAdapter(name, headScene, toolMount, options)
 %   contract) and registering it -- never editing this function.
 %
 %   headScene is hairsim.createDefaultHeadScene's result (needs
-%   headMeshWorld, headMeshSafetyWorld, headCenterWorldM). toolMount is
+%   headMeshWorld, headCenterWorldM). toolMount is
 %   hairsim.motion.createClipperToolMount's result.
 %
 %   adapter fields: name, robot (rigidBodyTree, clipper collision

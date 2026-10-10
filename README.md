@@ -109,7 +109,7 @@ runReleaseTests('Quick', true)   % about 3 min, skips the full region plan
 | `+hairsim/+execution` | plan execution engine, used by the GUI, the full demo and tests |
 | `+hairsim/+hair` | hair model, physics, clippings, cut models |
 | `+hairsim/+app` | the two interactive entries, the full demo, bundle replay, Teleop, view |
-| `data/` | head scan, hair roots, collision hull, clipper mesh |
+| `data/` | head scan, hair roots, clipper mesh |
 | `tests/` | the release tests above |
 
 ## Extending
@@ -122,7 +122,7 @@ runReleaseTests('Quick', true)   % about 3 min, skips the full region plan
   the Auto planner list.
 - **Another robot.** Add an adapter next to `+hairsim/+robot/+adapters`.
 - **Your own head.** Pass `'DataDir'` to `hairsim.api.loadScene` (and to the
-  entries) pointing at a folder with the same five files as `data/`.
+  entries) pointing at a folder with the same three files as `data/`.
 
 ## Known limitations
 

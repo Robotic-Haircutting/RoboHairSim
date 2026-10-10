@@ -1,5 +1,5 @@
 function [hairLayer, updateInfo] = updateHairLayerForClipper( ...
-        hairLayer, T_world_ee, cutFlag, headHullWorld, floorZ, options)
+        hairLayer, T_world_ee, cutFlag, floorZ, options)
 %UPDATEHAIRLAYERFORCLIPPER Advance cutting, physics, and debris for one frame.
 %   T_world_ee: the end-effector pose this frame. Cutting needs the clipper
 %   cut model in hairLayer.cutting.model (hairsim.app.hair.installClipperCut
@@ -8,7 +8,6 @@ arguments
     hairLayer (1, 1) struct
     T_world_ee (4, 4) double
     cutFlag (1, 1) logical
-    headHullWorld (1, 1) struct
     floorZ (1, 1) double {mustBeFinite}
     options.DebrisRandomScale (1, 1) double {mustBeNonnegative} = 1.0
     % true: physics + debris only, cutting untouched (an idle frame, the
@@ -65,12 +64,8 @@ if ~isempty(strandIndices)
     hairLayer.haircutState.params.rigidity = hairLayer.physics.rigidity;
     hairLayer.haircutState.params.damping = hairLayer.physics.damping;
     hairLayer.haircutState.params.dt = hairLayer.physics.dt;
-    % the hair collides with the exact head mesh when the layer carries its
-    % query (hairsim.hair.createHairLayer), else with the head hull
-    headCollision = headHullWorld;
-    if isfield(hairLayer.physics, 'headQuery') && ~isempty(hairLayer.physics.headQuery)
-        headCollision = hairLayer.physics.headQuery;
-    end
+    % the hair collides with the exact head mesh (hairsim.hair.createHairLayer)
+    headCollision = hairLayer.physics.headQuery;
     iterations = 10;
     if isfield(hairLayer.physics, 'constraintIterations')
         iterations = hairLayer.physics.constraintIterations;

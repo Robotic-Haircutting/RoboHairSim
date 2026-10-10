@@ -2,13 +2,10 @@ function [haircutState, cutInfo] = applyClipperHaircutStep( ...
         haircutState, T_world_ee, cutModel, options)
 %APPLYCLIPPERHAIRCUTSTEP Shorten hit guide hair and append falling debris.
 %   T_world_ee: the end-effector pose of this CUT tick. cutModel is the
-%   clipper's cut model:
-%     "combLift" (hairsim.hair.cutting.createCombLiftCutModel) = comb stands
-%       covered strands up, cut at lengthGoal's target; the same predicate
-%       the planner's coverage uses. PreviousToolTransform (the last CUT
-%       tick's T_world_ee) makes it sweep between ticks.
-%     "guardBlade" (hairsim.hair.cutting.createGuardBladeCutModel) = flat
-%       blade + guard comb (exploratory), ignores any per-strand target.
+%   clipper's cut model, "combLift" (hairsim.hair.cutting.createCombLiftCutModel):
+%   the comb stands covered strands up, cut at lengthGoal's target; the same
+%   predicate the planner's coverage uses. PreviousToolTransform (the last
+%   CUT tick's T_world_ee) makes it sweep between ticks.
 arguments
     haircutState (1, 1) struct
     T_world_ee (4, 4) double
@@ -40,14 +37,6 @@ if cutModel.type == "combLift"
             haircutState.hairState.activeNodeCounts, ...
             targetActiveNodeCounts, T_world_tcp, cutModel.tool, ...
             'FlowDirs', flowDirs);
-elseif cutModel.type == "guardBlade"
-    [haircutState.hairState.activeNodeCounts, cutInfo] = ...
-        hairsim.hair.cutting.applyGuardBladeCutToGuideHair( ...
-            haircutState.hairState.hairs.X, ...
-            haircutState.hairState.hairs.Y, ...
-            haircutState.hairState.hairs.Z, ...
-            haircutState.hairState.activeNodeCounts, ...
-            T_world_ee, cutModel);
 else
     error("hairsim:UnknownCutModel", "Unknown cut model type '%s'.", cutModel.type);
 end

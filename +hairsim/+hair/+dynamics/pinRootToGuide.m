@@ -1,6 +1,6 @@
 function hairState = pinRootToGuide(hairState, strandIdx)
 %PINROOTTOGUIDE Snap a strand's root node to its guide target and zero its velocity.
-%   Shared by hairsim.hair.dynamics.applyGuideHairHeadHullClearance and
+%   Shared by hairsim.hair.dynamics.applyGuideHairHeadMeshClearance and
 %   hairsim.hair.dynamics.stepGuideHairPhysics.
 
 hairState.hairs.X(1, strandIdx) = hairState.guideTargets.X(1, strandIdx);

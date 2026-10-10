@@ -1,7 +1,7 @@
 function builder = createRailContextBuilder(adapter, headScene, options)
 %CREATERAILCONTEXTBUILDER Closure factory for a circular-floor-rail base:
 %   builder(thetaRad) -> struct('robot', ..., 'headCollision', ...) at that
-%   rail station, everything else (toolMount, headMeshSafetyWorld, qHome,
+%   rail station, everything else (toolMount, qHome,
 %   ...) unchanged.
 %
 %   Planners only ever call ctx.railContextBuilder(thetaRad); this factory

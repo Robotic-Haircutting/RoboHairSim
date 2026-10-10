@@ -5,7 +5,7 @@ function context = createRobotContext(adapterName, scene, options)
 %
 %   context = hairsim.api.createRobotContext("ur5e", scene) is the
 %   'context' argument every registered region planner expects: robot, endEffector, toolMount,
-%   headMeshWorld, headMeshSafetyWorld, headCollision, headCenterWorldM,
+%   headMeshWorld, headCollision, headCenterWorldM,
 %   R_world_head, rootDir, qHome, qCurrent, redundantJointIndices,
 %   numJoints.
 %
@@ -45,7 +45,6 @@ context.robot = adapter.robot;
 context.endEffector = adapter.endEffector;
 context.toolMount = adapter.toolMount;
 context.headMeshWorld = scene.headScene.headMeshWorld;
-context.headMeshSafetyWorld = scene.headScene.headMeshSafetyWorld;
 context.headCollision = adapter.headCollision;
 context.headCenterWorldM = scene.headScene.headCenterWorldM;
 context.R_world_head = scene.headScene.R_world_head;

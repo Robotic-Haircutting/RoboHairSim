@@ -12,7 +12,7 @@ function hairAppState = stepIdleHair(hairAppState, robotAppState, viewState, sce
 mc = robotAppState.modelContext;
 T_world_ee = getTransform(mc.robot, robotAppState.state.qCurrent, char(mc.endEffector));
 [hairAppState, hairStepResult] = hairsim.app.hair.stepHairSim(hairAppState, T_world_ee, ...
-    false, scene.headScene.headHullWorld, floorZ, 'SkipCutting', true);
+    false, floorZ, 'SkipCutting', true);
 if hairStepResult.shouldRender && ~isempty(viewState)
     hairsim.app.view.renderHairOverlay(viewState, hairAppState.hairLayer.haircutState);
 end

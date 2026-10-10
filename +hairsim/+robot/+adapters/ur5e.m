@@ -4,7 +4,7 @@ function raw = ur5e()
 %   hairsim.robot.registerRobotAdapter and docs/EXTENDING.md). Values here
 %   are the exact constants the original matlab_ur5e bootstrap used
 %   (run_robot_haircut.m's setup block and exploreCeilingMountPose.m):
-%   qHomeConstant is the captured Home that keeps the clipper sphere
+%   qHomeConstant is the captured Home that keeps the clipper
 %   already clear of the head for the default head scene (so the
 %   clearance fix-up in hairsim.robot.createRobotAdapter is normally a
 %   no-op for this robot), and qHomeCeiling is the tuned overhead-mount

@@ -10,6 +10,10 @@ arguments
     options.BendStiffness (1, 1) double {mustBeNonnegative} = 0.05
     options.LengthConstraintStiffness (1, 1) double {mustBeNonnegative} = 0.85
     options.StrandIndices (1, :) double {mustBeInteger, mustBePositive} = []
+    % bend + length + root pin are repeated this many times per step: one
+    % pass corrects only part of the stretch gravity adds each step, so a
+    % single pass lets strands creep to about twice their length
+    options.ConstraintIterations (1, 1) double {mustBeInteger, mustBePositive} = 1
 end
 
 [nodesPerStrand, numStrands] = size(hairState.hairs.X);
@@ -48,10 +52,12 @@ for strandIdx = strandIndices
         hairState.vel.Z(nodeIdx, strandIdx) = hairState.vel.Z(nodeIdx, strandIdx) * options.Damping;
     end
 
-    hairState = applyBendConstraint(hairState, strandIdx, activeCount, options.BendStiffness);
-    hairState = applyLengthConstraint(hairState, strandIdx, activeCount, ...
-        options.LengthConstraintStiffness);
-    hairState = hairsim.hair.dynamics.pinRootToGuide(hairState, strandIdx);
+    for iteration = 1:options.ConstraintIterations
+        hairState = applyBendConstraint(hairState, strandIdx, activeCount, options.BendStiffness);
+        hairState = applyLengthConstraint(hairState, strandIdx, activeCount, ...
+            options.LengthConstraintStiffness);
+        hairState = hairsim.hair.dynamics.pinRootToGuide(hairState, strandIdx);
+    end
 end
 end
 

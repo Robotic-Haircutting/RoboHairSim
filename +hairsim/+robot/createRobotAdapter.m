@@ -19,14 +19,13 @@ function adapter = createRobotAdapter(name, headScene, toolMount, options)
 %   base), ik, endEffector, weights, numJoints, redundantJointIndices
 %   (1:numJoints), qHome (safe at the default head scene; re-solved via IK
 %   if the adapter's own tuned constant is missing, wrong-sized, or leaves
-%   the clipper <1mm from the head), qCurrent (= qHome), qHomeCeiling (the
+%   the clipper model closer than options.HomeClearanceM to the head), qCurrent (= qHome), qHomeCeiling (the
 %   ceiling-mount study's Home; same fallback rule), toolMount,
 %   headCollision (collision objects for headScene.headMeshWorld, computed
 %   once here so callers building a planning context do not recompute it).
 %
 %   options.CollisionMarginM (default 0), options.MaxToolTipErrorM
-%   (default 0.03): passed through to the Home clearance fix-up solve, same
-%   defaults the original bootstrap used.
+%   (default 0.03), options.StartTipWorldM: the Home fix-up solve.
 
 arguments
     name (1, 1) string
@@ -35,6 +34,8 @@ arguments
     options.CollisionMarginM (1, 1) double {mustBeNonnegative} = 0
     options.MaxToolTipErrorM (1, 1) double {mustBeNonnegative} = 0.03
     options.HeadCollision = []
+    options.HomeClearanceM (1, 1) double {mustBeNonnegative} = 0.001
+    options.StartTipWorldM (1, 3) double = [0.4850, -0.0200, 0.2520]
 end
 
 builderFn = hairsim.robot.getRobotAdapterBuilder(name);
@@ -42,7 +43,6 @@ raw = builderFn();
 
 robot = loadrobot(raw.loadRobotName, 'DataFormat', 'column');
 plainRobot = loadrobot(raw.loadRobotName, 'DataFormat', 'column');
-robot = hairsim.motion.attachClipperCollisionToRobot(robot, raw.endEffector, toolMount);
 
 numJoints = numel(homeConfiguration(robot));
 redundantJointIndices = 1:numJoints;
@@ -70,25 +70,21 @@ homeIsTuned = numel(raw.qHomeConstant) == numJoints;
 ik = inverseKinematics('RigidBodyTree', robot);
 ik.SolverParameters.AllowRandomRestart = false;
 
-center = hairsim.getMountedClipperPoint( ...
-    getTransform(robot, qHome, char(raw.endEffector)), toolMount.T_ee_tool_center);
-clearance = hairsim.evaluateClipperSphereMeshClearance( ...
-    center, headScene.headMeshSafetyWorld, toolMount.toolClearanceRadiusM);
-if ~homeIsTuned || clearance.surfaceClearanceM < 0.001
-    safeTip = hairsim.path.createInitialClipperToolTip( ...
-        headScene.headCenterWorldM, headScene.headMeshSafetyWorld, toolMount);
-    [qSafe, ~, solved] = hairsim.motion.solveRobotForClipperTipWithOrientationFallback( ...
-        robot, ik, raw.endEffector, [0.01, 0.01, 0.01, 5, 5, 5], qHome, safeTip, ...
-        headScene.headCenterWorldM, toolMount.T_ee_tool, options.MaxToolTipErrorM, ...
-        headCollision, toolMount, options.CollisionMarginM, ...
-        'RedundantJointIndices', redundantJointIndices, 'InitialSeedConfiguration', qHome);
+% Home must leave the clipper clear of the head (clipper model vs the exact
+% head mesh) and the links clear of the head hull; an untuned robot always
+% gets a Home solved by IK at a start point pushed clear of the scalp.
+tool = toolMount.tool;
+headQuery = hairsim.tool.createHeadDistanceQuery(headScene.headMeshWorld);
+clearance = homeClipperClearance(robot, qHome, raw.endEffector, tool, headQuery);
+if ~homeIsTuned || clearance < options.HomeClearanceM
+    [qSafe, solved] = solveSafeHome(robot, ik, raw, qHome, headScene, tool, headQuery, ...
+        headCollision, options);
     if solved
         qHome = qSafe;
     else
         warning("hairsim:UnsafeInitialConfigurationUnresolved", ...
-            "qHome's actual clearance is %.4f m for robot adapter '%s' and no safe " + ...
-            "replacement was found via IK; strokes may be rejected as INVALID_START.", ...
-            clearance.surfaceClearanceM, raw.name);
+            "qHome's clipper clearance is %.4f m for robot adapter '%s' and no safe " + ...
+            "replacement was found via IK.", clearance, raw.name);
     end
 end
 % Rebuild the IK solver fresh after the fix-up solve above: reusing the
@@ -121,5 +117,42 @@ if numel(qHomeConstant) == numJoints
     qHome = qHomeConstant(:);
 else
     qHome = homeConfiguration(robotForFallback);
+end
+end
+
+function c = homeClipperClearance(robot, q, endEffector, tool, headQuery)
+T = getTransform(robot, q, char(endEffector)) * tool.T_ee_tcp;
+r = hairsim.tool.evaluateClipperClearance(T, tool, headQuery, 'CapM', 0.2);
+c = r.minM;
+end
+
+function [qSafe, solved] = solveSafeHome(robot, ik, raw, qHome, headScene, tool, headQuery, ...
+        headCollision, options)
+% IK for the TCP at a fixed start point near the head (facing the head
+% centre, all roll candidates), moved out along the scalp normal in 5 mm
+% steps until a candidate keeps the clipper options.HomeClearanceM clear
+% and the links clear of the head hull.
+qSafe = qHome;
+solved = false;
+tip = options.StartTipWorldM;
+for step = 0:20
+    [~, ~, ~, ~, candidates] = hairsim.motion.solveRobotForClipperTip( ...
+        robot, ik, raw.endEffector, [0.01, 0.01, 0.01, 5, 5, 5], qHome, tip, ...
+        headScene.headCenterWorldM, tool.T_ee_tcp, options.MaxToolTipErrorM, ...
+        'HeadCollisionForIk', headCollision, 'CollisionMarginMForIk', options.CollisionMarginM, ...
+        'InitialSeedConfiguration', qHome, 'RedundantJointIndices', 1:numel(qHome));
+    for k = 1:numel(candidates)
+        if candidates(k).solved && candidates(k).collisionClear && ...
+                homeClipperClearance(robot, candidates(k).q, raw.endEffector, tool, headQuery) >= options.HomeClearanceM
+            qSafe = candidates(k).q;
+            solved = true;
+            return;
+        end
+    end
+    [dist, closest] = hairsim.tool.signedDistanceToHead(tip, headQuery);
+    if ~(abs(dist) > 1e-9) || any(isnan(closest))
+        return;
+    end
+    tip = tip + 0.005 * sign(dist) * (tip - closest) / norm(tip - closest);
 end
 end

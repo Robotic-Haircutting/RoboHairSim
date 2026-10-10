@@ -11,10 +11,8 @@ function hairAppState = stepIdleHair(hairAppState, robotAppState, viewState, sce
 
 mc = robotAppState.modelContext;
 T_world_ee = getTransform(mc.robot, robotAppState.state.qCurrent, char(mc.endEffector));
-clipperCenterWorldM = hairsim.getMountedClipperPoint(T_world_ee, mc.toolMount.T_ee_tool_center);
-[hairAppState, hairStepResult] = hairsim.app.hair.stepHairSim(hairAppState, clipperCenterWorldM, ...
-    mc.toolMount.toolRadiusM, false, scene.headScene.headHullWorld, floorZ, ...
-    'ToolTransform', T_world_ee, 'SkipCutting', true);
+[hairAppState, hairStepResult] = hairsim.app.hair.stepHairSim(hairAppState, T_world_ee, ...
+    false, scene.headScene.headHullWorld, floorZ, 'SkipCutting', true);
 if hairStepResult.shouldRender && ~isempty(viewState)
     hairsim.app.view.renderHairOverlay(viewState, hairAppState.hairLayer.haircutState);
 end

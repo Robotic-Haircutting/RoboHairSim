@@ -55,8 +55,15 @@ for iter = 1:options.MaxIterations
             if v.name == "centre"
                 kind = "rest";
             end
-            cand = hairsim.cam.buildSegments({feet}, surface, tool, kind, ...
-                'LateralOffsetM', v.lateralOffsetM, 'RollRad', v.rollRad);
+            try
+                cand = hairsim.cam.buildSegments({feet}, surface, tool, kind, ...
+                    'LateralOffsetM', v.lateralOffsetM, 'RollRad', v.rollRad);
+            catch candidateError
+                if candidateError.identifier ~= "hairsim:FeedParallelToNormal"
+                    rethrow(candidateError);
+                end
+                continue;                   % degenerate candidate (feed along the normal): skip it
+            end
             if isempty(cand)
                 continue;
             end

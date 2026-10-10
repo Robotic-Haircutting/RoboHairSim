@@ -1,8 +1,7 @@
 function executePlan(regionPlan, robotModelContext, options)
 %EXECUTEPLAN Headless replay of a finished regionPlan -- no GUI required.
 %   Promotes playSavedRegionPlan.m's replay logic onto hairsim.execution
-%   (the same core engine hairsim.app.runInteractiveSession's Execution
-%   wiring uses), so the GUI and this headless entry point share one
+%   (the same core engine the interactive Auto session uses), so the GUI and this headless entry point share one
 %   implementation of "walk the plan's stroke/transit queue" -- see
 %   docs/EXTENDING.md's dependency-direction note: this file depends on
 %   hairsim.execution/hairsim.motion/hairsim.hair/hairsim.robot directly,
@@ -19,7 +18,9 @@ function executePlan(regionPlan, robotModelContext, options)
 %
 %   options.ReplayHair (default false): also cut hair sample by sample via
 %   hairsim.hair.updateHairLayerForClipper, driven by each segment's own
-%   cutMask. Requires options.HeadScene and options.HairLayer.
+%   cutMask, with the comb-lift clipper cut model of the plan's planner and
+%   length goal (the predicate the plan's coverage was computed with).
+%   Requires options.HeadScene and options.HairLayer.
 %   options.ShowLaneOverlay (default true): draw the static
 %   hairsim.analysis.drawRegionPlanPreview overlay once before animating.
 %   Requires options.HeadScene (the overlay needs nothing else, but the
@@ -65,6 +66,9 @@ if options.ShowLaneOverlay
 end
 hairLayer = options.HairLayer;
 if options.ReplayHair
+    hairLayer.haircutState.lengthGoal = regionPlan.lengthGoal;
+    hairLayer.cutting.model = hairsim.hair.cutting.createCombLiftCutModelForPlanner( ...
+        regionPlan.plannerName, hairLayer.haircutState, options.HeadScene.headMeshWorld);
     hairsim.hair.render.updateHaircutLayerOverlay(ax, hairLayer.haircutState);
 end
 drawFrame(regionPlan.qStartAtPlan, false, "START");
@@ -97,12 +101,10 @@ while executionState.isActive
     drawFrame(poseCommand.qCandidate, poseCommand.cutFlag, poseCommand.statusLabel);
     if options.ReplayHair
         T_world_ee = getTransform(robotModelContext.robot, poseCommand.qCandidate, char(robotModelContext.endEffector));
-        sphereCenterWorldM = hairsim.getMountedClipperPoint(T_world_ee, robotModelContext.toolMount.T_ee_tool_center);
         headRadiusApproxM = 0.5 * max(options.HeadScene.headMeshWorld.bboxSize);
         floorZ = options.HeadScene.headMeshWorld.bboxMin(3) - 0.35 * headRadiusApproxM;
         [hairLayer, hairUpdateInfo] = hairsim.hair.updateHairLayerForClipper( ...
-            hairLayer, sphereCenterWorldM, robotModelContext.toolMount.toolRadiusM, ...
-            poseCommand.cutFlag, options.HeadScene.headHullWorld, floorZ);
+            hairLayer, T_world_ee, poseCommand.cutFlag, options.HeadScene.headHullWorld, floorZ);
         if hairUpdateInfo.shouldRender
             hairsim.hair.render.updateHaircutLayerOverlay(ax, hairLayer.haircutState);
         end
@@ -121,8 +123,7 @@ fprintf('Replay done: %d of %d strokes.\n', executionState.strokesDone, regionPl
     function drawFrame(q, cutFlag, poseStatus)
         T_world_ee_actual = getTransform(robotModelContext.robot, q, char(robotModelContext.endEffector));
         hairsim.motion.drawRobotClipperScene(ax, robotModelContext.robot, q, options.HeadScene.headMeshWorld, ...
-            T_world_ee_actual, robotModelContext.toolMount.T_ee_tool, robotModelContext.toolMount.T_ee_tool_center, ...
-            robotModelContext.toolMount.toolRadiusM, cutFlag, true, 0, 'PoseStatus', string(poseStatus));
+            T_world_ee_actual, robotModelContext.toolMount, cutFlag, true, 0, 'PoseStatus', string(poseStatus));
     end
 
     function reportSegmentStart(segInfo)

@@ -1,8 +1,6 @@
 function [T_world_tcp, ok, liftM, clearance] = resolveContactStandoff(T_nominal, normalWorld, tool, headQuery)
 %RESOLVECONTACTSTANDOFF Lift one clipper pose along the scalp normal until
 %   the clipper clears the head, within the comb-contact tolerance.
-%   Replaces hairsim.path.resolveSafeCuttingCenter (sphere) for the
-%   camClipper pipeline.
 %
 %   T_nominal: TCP pose at the nominal stand-off (teeth face
 %   tool.nominalStandoffM above the scalp foot point). The pose is moved

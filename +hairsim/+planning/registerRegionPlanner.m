@@ -6,11 +6,7 @@ function registerRegionPlanner(name, plannerFn)
 %     regionPlan = plannerFn(haircutState, regionName, targetLengthM, context, options)
 %   -- the contract every built-in planner (see registerBuiltinPresets.m)
 %   already follows. To plug in a wholly custom path-planning algorithm,
-%   implement this signature directly and register it under a new name; to
-%   combine the existing building blocks differently, call
-%   hairsim.planning.planRegionCore with your own choice of orientation /
-%   lane-recovery / transit strategy and register THAT as plannerFn. See
-%   docs/EXTENDING.md.
+%   implement this signature directly and register it under a new name.
 
 arguments
     name (1, 1) string

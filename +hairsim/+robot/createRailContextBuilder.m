@@ -4,11 +4,8 @@ function builder = createRailContextBuilder(adapter, headScene, options)
 %   rail station, everything else (toolMount, headMeshSafetyWorld, qHome,
 %   ...) unchanged.
 %
-%   Ported out of run_robot_haircut.m's own buildRailContextAtTheta
-%   (run_robot_haircut.m:994-1014), which was never a planner concern to
-%   begin with -- hairsim.planning.transitStrategies.railSlide only ever
-%   calls ctx.railContextBuilder(thetaRad), never builds a rail context
-%   itself. This factory is the one place that knowledge now lives.
+%   Planners only ever call ctx.railContextBuilder(thetaRad); this factory
+%   is the one place that builds a rail context.
 %
 %   adapter: hairsim.robot.createRobotAdapter's result (needs plainRobot,
 %   endEffector, toolMount, and the fixed-station headCollision to combine
@@ -45,8 +42,6 @@ builder = @(thetaRad) buildAt(thetaRad);
             headScene.T_world_head, headScene.headMeshLocal, headScene.headScaleFactor, T_world_base);
         built = struct();
         built.headCollision = [fixedHeadCollision, env.collisionObjects];
-        built.robot = hairsim.motion.attachClipperCollisionToRobot( ...
-            hairsim.motion.applyRobotBaseTransform(plainRobot, T_world_base), ...
-            endEffector, toolMount);
+        built.robot = hairsim.motion.applyRobotBaseTransform(plainRobot, T_world_base);
     end
 end

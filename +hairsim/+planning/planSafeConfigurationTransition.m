@@ -4,17 +4,19 @@ function result = planSafeConfigurationTransition(qa, qb, ctx, options)
 %   tool, and the collision objects. Structure (symmetric):
 %       qa -> qa_clear -> qb_clear -> qb
 %   qa_clear (qb_clear) is reached by RETREATING the clipper away from the head, keeping the tool
-%   orientation, in StepM steps until the clipper sphere is ClearM from the head mesh. The direction of
-%   every step is (sphere centre - nearest head-mesh point), re-evaluated at each step. The approach to
-%   qb is the retreat path from qb, reversed. The middle qa_clear -> qb_clear is tried in this order:
+%   orientation, in StepM steps until the clipper model (hairsim.tool.createClipperTool: contact slab +
+%   body) is ClearM from the exact head mesh. The direction of every step is (the clipper point closest
+%   to the head - its nearest head-mesh point), re-evaluated at each step. The approach to qb is the
+%   retreat path from qb, reversed. The middle qa_clear -> qb_clear is tried in this order:
 %     1. straight line in joint space (<= JointStepDeg per sample);
 %     2. a head-centred shell arc (fallback candidate, options.EnableShell): the tool tip moves radially
 %        to a shell of radius rho = max(|pa - c_H|, |pb - c_H|) + ShellMarginM, follows a spherical arc
 %        (slerp of the direction from the head centre c_H; the tool orientation is slerped) and comes back
 %        radially to qb_clear; every sample by IK, then a short joint blend onto qb_clear.
-%   NOTHING is assumed safe. Every sample of every segment goes through the planner's own path gates:
-%   clipper sphere >= 1 mm from the head (safety mesh), robot (clipper tool excluded, as the planner)
-%   vs the collision objects with a 1 mm margin, no arm self collision, joint step limit, finite q.
+%   NOTHING is assumed safe. Every sample of every segment goes through the same gates as a cutting
+%   sample: clipper model >= tool.safetyClearanceM from the exact head mesh
+%   (hairsim.tool.evaluateClipperClearance), robot links vs the collision objects with a 1 mm margin,
+%   no arm + clipper self collision, joint step limit, finite q.
 %   Retreat / shell IK steps are seeded ONLY with the previous q (no Home, no redundant seeds) and
 %   additionally limited to MaxRetreatDqRad per step, so the IK cannot jump to another solution branch.
 %
@@ -25,8 +27,9 @@ function result = planSafeConfigurationTransition(qa, qb, ctx, options)
 %   result.clearM is the rung used (the last rung tried if none worked), result.ladderReasons the outcome
 %   of every rung tried.
 %
-%   ctx fields: robot (with the clipper tool), armOnlyRobot, endEffector, toolMount,
-%   headMeshSafetyWorld, headCenterWorldM, collisionObjects (cell: head pieces + environment).
+%   ctx fields: robot, armWithToolRobot (arm + clipper body, for self collision), endEffector,
+%   tool (hairsim.tool.createClipperTool), headQuery (hairsim.tool.createHeadDistanceQuery),
+%   headCenterWorldM, collisionObjects (cell: head hull + environment).
 %
 %   result: feasible, reason ("OK" or START_RETREAT_IK, START_RETREAT_COLLISION, GOAL_APPROACH_IK,
 %   GOAL_APPROACH_COLLISION, JOINT_TRANSFER_COLLISION, SHELL_TRANSFER_IK, SHELL_TRANSFER_COLLISION,
@@ -135,7 +138,7 @@ function gp = createGateParams(options)
 gp = struct('clearM', options.ClearM, 'stepM', options.StepM, 'maxRetreatM', options.MaxRetreatM, ...
     'maxRetreatDqRad', options.MaxRetreatDqRad, 'maxJointStepRad', options.MaxJointStepRad, ...
     'jointStepRad', deg2rad(options.JointStepDeg), 'shellMarginM', options.ShellMarginM, ...
-    'dSafeM', 0.001, 'collisionMarginM', 0.001, 'maxToolTipErrorM', 0.005, ...
+    'collisionMarginM', 0.001, 'maxToolTipErrorM', 0.005, ...
     'ikWeights', [0.01, 0.01, 0.01, 5, 5, 5]);
 end
 
@@ -151,18 +154,17 @@ ok = false; why = "";
 if ~all(isfinite(q))
     why = "non-finite joint values"; return;
 end
-T = getTransform(ctx.robot, q, char(ctx.endEffector));
-center = hairsim.getMountedClipperPoint(T, ctx.toolMount.T_ee_tool_center);
-clearance = hairsim.evaluateClipperSphereMeshClearance(center, ctx.headMeshSafetyWorld, ctx.toolMount.toolClearanceRadiusM);
-if clearance.surfaceClearanceM < gp.dSafeM
-    why = sprintf("clipper sphere %.1f mm from the head", 1000 * clearance.surfaceClearanceM); return;
+T = getTransform(ctx.robot, q, char(ctx.endEffector)) * ctx.tool.T_ee_tcp;
+clearance = hairsim.tool.evaluateClipperClearance(T, ctx.tool, ctx.headQuery);
+if ~clearance.ok
+    why = sprintf("clipper %.1f mm from the head", 1000 * clearance.minM); return;
 end
-if ~hairsim.motion.validateClipperRobotCollision(ctx.robot, q, ctx.endEffector, ctx.toolMount, ...
+if ~hairsim.motion.validateClipperRobotCollision(ctx.robot, q, ctx.endEffector, ...
         ctx.collisionObjects, gp.collisionMarginM, true)
     why = "robot vs head/environment"; return;
 end
-if checkCollision(ctx.armOnlyRobot, q, 'SkippedSelfCollisions', 'parent')
-    why = "arm self collision"; return;
+if checkCollision(ctx.armWithToolRobot, q, 'SkippedSelfCollisions', 'parent')
+    why = "arm + clipper self collision"; return;
 end
 if ~isempty(qPrev) && max(abs(q - qPrev)) > gp.maxJointStepRad + 1e-12
     why = sprintf("joint step %.1f deg", rad2deg(max(abs(q - qPrev)))); return;
@@ -177,12 +179,11 @@ ik = inverseKinematics('RigidBodyTree', ctx.robot);
 ik.SolverParameters.AllowRandomRestart = false;
 [~, ~, ~, ~, log] = hairsim.motion.solveRobotForClipperTip( ...
     ctx.robot, ik, ctx.endEffector, gp.ikWeights, qPrev, tipTargetM, ctx.headCenterWorldM, ...
-    ctx.toolMount.T_ee_tool, gp.maxToolTipErrorM, ...
+    ctx.tool.T_ee_tcp, gp.maxToolTipErrorM, ...
     'RollAnglesRad', 0, 'BaseRotationWorldEe', R, ...
     'IncludeHomeSeed', false, 'IncludeInitialSeed', false, 'IncludeRedundantSeeds', false, ...
     'RandomSeedCount', 0, 'RedundantJointIndices', 1:numel(qPrev), 'InitialSeedConfiguration', qPrev, ...
-    'HeadCollisionForIk', ctx.collisionObjects, 'ToolMountForCollision', ctx.toolMount, ...
-    'CollisionMarginMForIk', gp.collisionMarginM, 'SkipClipperHeadCheckForIk', false);
+    'HeadCollisionForIk', ctx.collisionObjects, 'CollisionMarginMForIk', gp.collisionMarginM);
 bestStep = inf; nSolved = 0; why = "";
 for i = 1:numel(log)
     if ~log(i).solved, continue; end
@@ -212,25 +213,26 @@ end
 end
 
 function [Q, reason, detail] = retreatPath(q0, ctx, gp)
-%RETREATPATH Move the clipper away from the head (orientation held) until the sphere is gp.clearM from it.
+%RETREATPATH Move the clipper away from the head (orientation held) until the clipper model is
+%   gp.clearM from the exact head mesh.
 Q = q0; reason = "OK"; detail = "";
 T = getTransform(ctx.robot, q0, char(ctx.endEffector));
 R = T(1:3, 1:3);
 qPrev = q0;
 maxSteps = ceil(gp.maxRetreatM / gp.stepM);
 for step = 1:maxSteps
-    T = getTransform(ctx.robot, qPrev, char(ctx.endEffector));
-    center = hairsim.getMountedClipperPoint(T, ctx.toolMount.T_ee_tool_center);
-    tip = hairsim.getMountedClipperPoint(T, ctx.toolMount.T_ee_tool);
-    clearance = hairsim.evaluateClipperSphereMeshClearance(center, ctx.headMeshSafetyWorld, ctx.toolMount.toolClearanceRadiusM);
-    if clearance.surfaceClearanceM >= gp.clearM
+    T = getTransform(ctx.robot, qPrev, char(ctx.endEffector)) * ctx.tool.T_ee_tcp;
+    tip = T(1:3, 4)';
+    clearance = hairsim.tool.evaluateClipperClearance(T, ctx.tool, ctx.headQuery, 'CapM', gp.clearM + 0.01);
+    if clearance.minM >= gp.clearM
         return;
     end
-    [closest, ~, dist] = hairsim.closestPointOnMesh(center, ctx.headMeshSafetyWorld);
-    if dist < 1e-9
-        reason = "COLLISION"; detail = "sphere centre on the head surface"; return;
+    worst = clearance.worstPointWorldM;
+    [dist, closest] = hairsim.tool.signedDistanceToHead(worst, ctx.headQuery, gp.clearM + 0.01);
+    if ~(abs(dist) > 1e-9) || any(isnan(closest))
+        reason = "COLLISION"; detail = "clipper on the head surface"; return;
     end
-    direction = (center - closest) / norm(center - closest);
+    direction = sign(dist) * (worst - closest) / norm(worst - closest);   % away from the head
     [q, why, det] = solveStep(qPrev, tip + gp.stepM * direction, R, ctx, gp);
     if why ~= ""
         reason = why; detail = sprintf("retreat step %d: %s", step, det); return;
@@ -244,13 +246,13 @@ end
 function [Q, ok, why] = jointLine(qa, qb, ctx, gp)
 %JOINTLINE Straight joint-space line qa -> qb (excluding qa), every sample through the gates.
 n = max(1, ceil(max(abs(qb - qa)) / gp.jointStepRad));
-Q = zeros(6, 0); ok = true; why = "";
+Q = zeros(numel(qa), 0); ok = true; why = "";
 prev = qa;
 for k = 1:n
     q = qa + (qb - qa) * k / n;
     [okK, w] = gates(q, prev, ctx, gp);
     if ~okK
-        ok = false; why = sprintf("%s (sample %d/%d)", w, k, n); Q = zeros(6, 0); return;
+        ok = false; why = sprintf("%s (sample %d/%d)", w, k, n); Q = zeros(numel(qa), 0); return;
     end
     Q(:, end + 1) = q; %#ok<AGROW>
     prev = q;
@@ -259,12 +261,14 @@ end
 
 function [Q, reason, detail, QPartial] = shellArc(qa, qb, ctx, gp)
 %SHELLARC Head-centred shell path between the two clear configurations (excluding qa, ending in qb).
-Q = zeros(6, 0); reason = "OK"; detail = ""; QPartial = zeros(6, 0);
+Q = zeros(numel(qa), 0); reason = "OK"; detail = ""; QPartial = zeros(numel(qa), 0);
 Ta = getTransform(ctx.robot, qa, char(ctx.endEffector));
 Tb = getTransform(ctx.robot, qb, char(ctx.endEffector));
 Ra = Ta(1:3, 1:3); Rb = Tb(1:3, 1:3);
-pa = hairsim.getMountedClipperPoint(Ta, ctx.toolMount.T_ee_tool);
-pb = hairsim.getMountedClipperPoint(Tb, ctx.toolMount.T_ee_tool);
+Ta = Ta * ctx.tool.T_ee_tcp;
+Tb = Tb * ctx.tool.T_ee_tcp;
+pa = Ta(1:3, 4)';
+pb = Tb(1:3, 4)';
 cH = ctx.headCenterWorldM(:)';
 rho = max(norm(pa - cH), norm(pb - cH)) + gp.shellMarginM;
 ua = (pa - cH) / norm(pa - cH);
@@ -302,7 +306,7 @@ qPrev = qa;
 for k = 1:size(pts, 1)
     [q, why, det] = solveStep(qPrev, pts(k, :), rots(:, :, k), ctx, gp);
     if why ~= ""
-        reason = why; detail = sprintf("shell sample %d/%d: %s", k, size(pts, 1), det); QPartial = Q; Q = zeros(6, 0); return;
+        reason = why; detail = sprintf("shell sample %d/%d: %s", k, size(pts, 1), det); QPartial = Q; Q = zeros(numel(qa), 0); return;
     end
     Q(:, end + 1) = q; %#ok<AGROW>
     qPrev = q;
@@ -310,7 +314,7 @@ end
 % blend from wherever the IK ended onto qb_clear (same gates)
 [Qb, ok, why] = jointLine(qPrev, qb, ctx, gp);
 if ~ok
-    reason = "COLLISION"; detail = "blend onto qb_clear: " + why; Q = zeros(6, 0); return;
+    reason = "COLLISION"; detail = "blend onto qb_clear: " + why; Q = zeros(numel(qa), 0); return;
 end
 Q = [Q, Qb];
 end

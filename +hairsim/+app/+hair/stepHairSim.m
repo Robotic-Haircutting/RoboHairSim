@@ -1,4 +1,4 @@
-function [appState, hairStepResult] = stepHairSim(appState, clipperCenterWorldM, toolRadiusM, cutFlag, headHullWorld, floorZ, options)
+function [appState, hairStepResult] = stepHairSim(appState, T_world_ee, cutFlag, headHullWorld, floorZ, options)
 %STEPHAIRSIM Advance cutting/physics/debris one frame; thin wrapper around
 %   hairsim.hair.updateHairLayerForClipper.
 %
@@ -9,15 +9,13 @@ function [appState, hairStepResult] = stepHairSim(appState, clipperCenterWorldM,
 %   recording log itself.
 arguments
     appState (1, 1) struct
-    clipperCenterWorldM (1, 3) double {mustBeFinite}
-    toolRadiusM (1, 1) double {mustBePositive}
+    T_world_ee (4, 4) double
     cutFlag (1, 1) logical
     headHullWorld (1, 1) struct
     floorZ (1, 1) double {mustBeFinite}
-    options.ToolTransform = []
     options.SkipCutting (1, 1) logical = false   % idle frame: physics + debris only
 end
 [appState.hairLayer, hairStepResult] = hairsim.hair.updateHairLayerForClipper( ...
-    appState.hairLayer, clipperCenterWorldM, toolRadiusM, cutFlag, headHullWorld, floorZ, ...
-    'ToolTransform', options.ToolTransform, 'SkipCutting', options.SkipCutting);
+    appState.hairLayer, T_world_ee, cutFlag, headHullWorld, floorZ, ...
+    'SkipCutting', options.SkipCutting);
 end

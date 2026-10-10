@@ -1,8 +1,7 @@
 function jump = emptyIntraLaneJump()
-%EMPTYINTRALANEJUMP One intra-lane bridge attempt (see
-%   hairsim.planning.laneRecoveryStrategies.bridgeLift), also reused as the
-%   shape for a safety lift-off (planSafetyLiftOff-equivalent): fromCutIdx/
-%   toCutIdx/numSkippedCutSamples are meaningless for a lift-off (left at 0).
+%EMPTYINTRALANEJUMP Field shape of a stroke's intraLaneJumps (kept for the
+%   stroke struct contract, hairsim.planning.emptyStroke; empty for every
+%   camClipper stroke).
 jump = struct('fromCutIdx', 0, 'toCutIdx', 0, 'feasible', false, 'reason', "", ...
     'failedSample', 0, 'detail', "", 'samplePhase', strings(0, 1), ...
     'pointsWorldM', zeros(0, 3), 'rotations', zeros(3, 3, 0), 'qTrajectory', zeros(0, 0), ...

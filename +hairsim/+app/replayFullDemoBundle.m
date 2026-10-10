@@ -2,7 +2,6 @@ function result = replayFullDemoBundle(bundleOrPath, options)
 %REPLAYFULLDEMOBUNDLE Replay a bundle saved by hairsim.app.runFullDemoSession
 %   (options.SaveBundlePath, or result.bundle passed directly) with ZERO
 %   planning calls: no hairsim.app.planning.planHaircut, no
-%   hairsim.planning.transitStrategies.direct, no
 %   hairsim.planning.planSafeConfigurationTransition, not even a cache
 %   lookup -- every joint configuration for every tick of the whole demo
 %   (region strokes, inter-region bridges, rail fold/slide/unfold) was
@@ -34,8 +33,8 @@ arguments
     options.RunId (1, 1) string = ""
     options.ShowScene (1, 1) logical = true
     % Guard-comb height (m) of the geometric flat-blade cut model
-    % (hairsim.hair.cutting.createGuardBladeCutModel). NaN (default) keeps
-    % the original sphere cut clamped at the bundle's per-strand lengthGoal.
+    % (hairsim.hair.cutting.createGuardBladeCutModel). NaN (default) = the
+    % bundle planner's comb-lift clipper cut model.
     options.GuardBladeHeightM (1, 1) double = nan
     % Optional video of the replay (needs ShowScene): every VideoFrameStride-th
     % tick is written to VideoPath (MPEG-4) at VideoFps. "" = no video.
@@ -216,7 +215,7 @@ for sampleIdx = 1:numSamples
             lengthGoal.targetLengthM, railThetaRad, bundle.cutFlag(sampleIdx));
     end
     if ~isempty(video) && (mod(sampleIdx, options.VideoFrameStride) == 0 || sampleIdx == numSamples)
-        writeVideo(video, captureFrame(fig));
+        writeVideo(video, fitFrame(captureFrame(fig), video));
     end
 end
 if ~isempty(video) && options.EndOrbitS > 0
@@ -237,8 +236,7 @@ if ~isempty(video) && options.EndOrbitS > 0
     if isappdata(ax, 'hairsimRobotVisualHandles')
         robotHandles = getappdata(ax, 'hairsimRobotVisualHandles');
     end
-    robotHandles = [robotHandles(:); findall(ax, 'Tag', 'HairSimClipperHead'); ...
-        findall(ax, 'Tag', 'HairSimClipperSphere'); findall(ax, 'Tag', 'HairSimClipperLine')];
+    robotHandles = [robotHandles(:); findall(ax, 'Tag', 'HairSimClipperHead')];
     set(robotHandles(isgraphics(robotHandles)), 'Visible', 'off');
     if ~isempty(captionHandle)
         hs = hairAppState.hairLayer.haircutState;
@@ -250,7 +248,7 @@ if ~isempty(video) && options.EndOrbitS > 0
         az = az0 + 360 * f / numFrames;
         dir = [cosd(25) * sind(az), -cosd(25) * cosd(az), sind(25)];
         applyCamera(ax, target + distance * dir, target, viewAngle);
-        writeVideo(video, captureFrame(fig));
+        writeVideo(video, fitFrame(captureFrame(fig), video));
     end
 end
 if ~isempty(video)
@@ -263,7 +261,7 @@ config = hairsim.control.createRobotHaircutConfig(scene.paths, recordingState.ru
     'TargetHairLengthM', bundle.meta.targetLengthM, ...
     'TargetHairLengthToleranceM', hairAppState.hairLayer.haircutState.params.targetHairLengthToleranceM);
 [recordingState, recordingResult] = hairsim.app.recording.finalizeSession(recordingState, ...
-    robotAppState.modelContext, scene.paths, scene.headScene.headMeshSafetyWorld, ...
+    robotAppState.modelContext, scene.paths, scene.headScene.headMeshWorld, ...
     initialActiveNodeCounts, hairAppState.hairLayer.haircutState, {}, config); %#ok<ASGLU>
 
 % A pure replay has no per-region planning outcomes of its own (see the
@@ -331,8 +329,7 @@ for i = 1:numel(samples)
     viewState = hairsim.app.view.createViewState(ax);
     hairsim.app.view.renderScene(viewState, struct('robot', ctx.robot, 'qCurrent', q, ...
         'headMeshWorld', scene.headScene.headMeshWorld, 'T_world_ee_actual', T_world_ee, ...
-        'T_ee_tool', ctx.toolMount.T_ee_tool, 'T_ee_tool_center', ctx.toolMount.T_ee_tool_center, ...
-        'toolRadiusM', ctx.toolMount.toolRadiusM, 'toolDisplayMesh', {ctx.toolDisplayMesh}, ...
+        'toolMount', ctx.toolMount, 'toolDisplayMesh', {ctx.toolDisplayMesh}, ...
         'cutFlag', bundle.cutFlag(k), 'solved', true, 'toolTipErrorM', 0, 'poseStatus', "", 'sceneZMaxM', 0.65));
     hairsim.app.view.renderHairOverlay(viewState, hairAppState.hairLayer.haircutState);
     applyCamera(ax, cameraPath.cameraPosition(k, :), cameraPath.cameraTarget, cameraPath.viewAngleDeg);
@@ -369,4 +366,18 @@ function img = captureFrame(fig)
 % matlab -batch: unlit grey head, stray translucent bands and dotted lines
 % that are not scene objects); print re-renders the whole figure.
 img = print(fig, '-RGBImage', '-r0');
+end
+
+function img = fitFrame(img, video)
+% The video's frame size is fixed by its first frame; a later print can come
+% back a few pixels off (window or display scale change mid-replay): pad with
+% white / crop to that size so writeVideo never rejects the frame.
+if video.FrameCount == 0
+    return
+end
+h = video.Height;
+w = video.Width;
+img = img(1:min(end, h), 1:min(end, w), :);
+img(end + 1:h, :, :) = 255;
+img(:, end + 1:w, :) = 255;
 end

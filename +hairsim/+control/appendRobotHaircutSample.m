@@ -16,7 +16,6 @@ sampleLog.targetTipWorldM(end + 1, :) = sample.targetTipWorldM;
 sampleLog.desiredTipWorldM(end + 1, :) = sample.desiredTipWorldM;
 sampleLog.safeTipWorldM(end + 1, :) = sample.safeTipWorldM;
 sampleLog.actualTipWorldM(end + 1, :) = sample.actualTipWorldM;
-sampleLog.clipperCenterWorldM(end + 1, :) = sample.clipperCenterWorldM;
 
 for cutIdx = 1:sample.cutInfo.cutCount
     cutEvents.sampleIndex(end + 1, 1) = sampleIndex;

@@ -2,17 +2,9 @@ function [qCandidate, T_world_ee, solved, toolTipErrorM, candidateLog] = ...
         solveRobotForClipperTip(robot, ik, endEffector, weights, qCurrent, ...
         toolTipWorldM, headCenterWorldM, T_ee_tool, maxToolTipErrorM, options)
 %SOLVEROBOTFORCLIPPERTIP Solve relaxed multi-seed IK for a clipper tip.
-%   options.SkipClipperHeadCheckForIk (default true) controls whether the
-%   internal per-candidate collision check allows the clipper sphere to
-%   intersect the head -- true is the correct, INTENTIONAL default for
-%   CUT/APPROACH/RETREAT (the clipper is SUPPOSED to be near/touching the
-%   scalp there; only robot-link-vs-head and self-collision are hard
-%   constraints). Any caller solving a free-space/task-constraint-free
-%   segment where clipper-head contact is NOT allowed (e.g. TRANSIT's
-%   LIFT/TRANSFER/LOWER, or Home entry/exit) MUST pass
-%   'SkipClipperHeadCheckForIk', false explicitly -- do not rely on
-%   changing this default, since that would silently break every
-%   existing CUT-phase caller instead.
+%   options.HeadCollisionForIk: collision objects the robot LINKS (not the
+%   clipper) must clear; the clipper's own clearance is the caller's gate
+%   (hairsim.tool.evaluateClipperClearance).
 
 arguments
     robot
@@ -35,9 +27,7 @@ arguments
     options.ForwardAxisWeight (1, 1) double {mustBeNonnegative} = 1.0
     options.BaseRotationWorldEe double = zeros(0, 0)
     options.HeadCollisionForIk = []
-    options.ToolMountForCollision = struct()
     options.CollisionMarginMForIk (1, 1) double {mustBeNonnegative} = 0.001
-    options.SkipClipperHeadCheckForIk (1, 1) logical = true
     options.RandomSeedCount (1, 1) double {mustBeInteger, mustBeNonnegative} = 0
     options.RandomSeedValue (1, 1) double = 12345
     options.RedundantJointIndices (1, :) double {mustBeInteger, mustBePositive} = [1, 3, 5, 7]
@@ -68,8 +58,7 @@ for rollIdx = 1:numel(options.RollAnglesRad)
             seedIdx, maxToolTipErrorM, options.JointStepWeight, ...
             options.OrientationWeight, options.ApproachAxisWeight, ...
             options.ForwardAxisWeight, baseRotationWorldEe, options.HeadCollisionForIk, ...
-            options.ToolMountForCollision, options.CollisionMarginMForIk, ...
-            options.SkipClipperHeadCheckForIk); %#ok<AGROW>
+            options.CollisionMarginMForIk); %#ok<AGROW>
     end
 end
 
@@ -92,8 +81,7 @@ end
 function candidate = solveOneCandidate(robot, ik, endEffector, weights, seed, ...
         qCurrent, T_target, T_ee_tool, toolTipWorldM, rollAngleRad, seedIdx, ...
         maxToolTipErrorM, jointStepWeight, orientationWeight, approachAxisWeight, ...
-        forwardAxisWeight, baseRotationWorldEe, headCollisionForIk, ...
-        toolMountForCollision, collisionMarginMForIk, skipClipperHeadCheckForIk)
+        forwardAxisWeight, baseRotationWorldEe, headCollisionForIk, collisionMarginMForIk)
 candidate = createCandidate(numel(qCurrent));
 candidate.TTargetWorldEe = T_target;
 candidate.rollAngleRad = rollAngleRad;
@@ -137,8 +125,7 @@ candidate.solved = candidate.toolTipErrorM <= maxToolTipErrorM;
 
 if candidate.solved && ~isempty(headCollisionForIk)
     [collisionClearFlag, ~, collisionSepDistM] = hairsim.motion.validateClipperRobotCollision( ...
-        robot, qSolution, endEffector, toolMountForCollision, headCollisionForIk, ...
-        collisionMarginMForIk, true, 'SkipClipperHeadCheck', skipClipperHeadCheckForIk);
+        robot, qSolution, endEffector, headCollisionForIk, collisionMarginMForIk, true);
     candidate.collisionClear = collisionClearFlag;
     candidate.collisionSepDistM = collisionSepDistM;
 end

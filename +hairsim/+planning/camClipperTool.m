@@ -8,6 +8,9 @@ function [tool, isCamClipper] = camClipperTool(plannerName)
 %                             direction ignored; the 2026-10-03 results)
 %     "camClipperAgainstFlow" same tool, comb lifts only hair it is pushed
 %                             against: feed within 45 deg of -hair flow
+%     "geometricRaster"       the hair-unaware baseline: plans without the
+%                             hair flow, but is judged and cut by the SAME
+%                             tool as camClipperAgainstFlow (45 deg rule)
 %
 %   isCamClipper: plannerName belongs to the camClipper family (tool is []
 %   otherwise).
@@ -20,7 +23,7 @@ isCamClipper = true;
 switch plannerName
     case "camClipper"
         tool = hairsim.tool.createClipperTool();
-    case "camClipperAgainstFlow"
+    case {"camClipperAgainstFlow", "geometricRaster"}
         tool = hairsim.tool.createClipperTool('MaxFeedAngleRad', deg2rad(45));
     otherwise
         tool = [];

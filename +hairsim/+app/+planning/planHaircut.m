@@ -17,10 +17,9 @@ function [planningState, planResult] = planHaircut(planningState, planRequest)
 %   options (struct: LaneIndices, PlanTransits, OnProgress -- all optional,
 %   same defaults as hairsim.api.planRegion), useCache (default true).
 %
-%   hairsim.planning.planRegionCore's own `context` argument mixes
-%   robot-model and scene fields (a legacy shape predating the
-%   RobotModelContext/Scene split); this function is exactly where that
-%   merge happens, so no other subsystem has to know about it.
+%   A region planner's `context` argument mixes robot-model and scene
+%   fields; this function is exactly where that merge happens, so no other
+%   subsystem has to know about it.
 %
 %   planResult fields: regionPlan, fromCache (true if the returned plan was
 %   loaded from disk, not freshly computed), cacheReason (why a cache file
@@ -88,10 +87,9 @@ context = struct( ...
     'headMeshSafetyWorld', planRequest.headMeshSafetyWorld, ...
     'headCenterWorldM', planRequest.headCenterWorldM, ...
     'R_world_head', planRequest.rWorldHead);
-% hairsim.planning.transitStrategies.railSlide (the "railslide" preset)
-% needs these two fields; only present on robotModel when
-% hairsim.app.robot.switchBase last placed the robot on the rail (see its
-% own header for why they're absent otherwise, not just left stale).
+% the post-processor's rail station search needs these two fields; only
+% present on robotModel when hairsim.app.robot.switchBase last placed the
+% robot on the rail.
 if isfield(planRequest.robotModel, 'railContextBuilder')
     context.railContextBuilder = planRequest.robotModel.railContextBuilder;
     context.railThetaCurrentRad = planRequest.robotModel.railThetaCurrentRad;

@@ -1,7 +1,7 @@
 function executionState = createExecutionState()
 %CREATEEXECUTIONSTATE Idle Execution state. This is a CORE engine (not a
 %   GUI subsystem) consumed by both hairsim.api.executePlan (headless) and
-%   the App shell's runInteractiveSession -- see docs/EXTENDING.md's
+%   the interactive Auto session and the full demo -- see docs/EXTENDING.md's
 %   dependency-direction note: +hairsim/+api and +hairsim/+app both depend
 %   on +hairsim/+execution, never the other way around.
 %

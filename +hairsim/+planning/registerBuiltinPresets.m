@@ -1,61 +1,21 @@
 function registerBuiltinPresets()
-%REGISTERBUILTINPRESETS Register the 4 original planner combinations as
-%   named presets, so hairsim.planning.getRegionPlanner("strict") etc.
-%   behave exactly like the original matlab_ur5e planner files.
+%REGISTERBUILTINPRESETS Register the built-in region planners by name.
 %   Idempotent (safe to call more than once).
 %
-%   Preset -> {orientation strategy, lane-recovery strategy, transit strategy}:
-%     strict    -> {strict,       failLane,   direct}      (planAutonomousRegionHaircut.m)
-%     adaptive  -> {fallbackGrid, failLane,   direct}      (...OrientationFallback.m)
-%     intralane -> {strict,       bridgeLift, direct}      (...IntraLaneTransit.m)
-%     railslide -> {strict,       failLane,   railSlide}   (...RailSlideTransit.m)
-%                  Requires a rail-mode context (ctx.railContextBuilder +
-%                  ctx.railThetaCurrentRad -- see hairsim.api.
-%                  createRobotContext's 'RailMode' option); errors clearly
-%                  if used with a plain fixed-base context.
+%   camClipper            hairsim.planning.camClipperPlanner: clipper tool
+%                         model, CAM toolpaths + robot post-processing
+%   camClipperAgainstFlow the same with the feed-direction rule (comb lifts
+%                         only hair it is pushed against)
 %
-%   camClipper -> hairsim.planning.camClipperPlanner (clipper tool model,
-%                CAM toolpaths from scratch + robot post-processing; not a
-%                planRegionCore combination)
-%
-%   No other combination (e.g. fallbackGrid + bridgeLift) is registered as
-%   a named preset here -- those are untested combinations; build one
-%   yourself via hairsim.planning.planRegionCore if you want to try it.
-
-% The four lane presets are registered only where their engine exists: a
-% release build ships the camClipper family without them (it is a subset
-% of the development tree, see setupPath.m).
-if ~isempty(which('hairsim.planning.planRegionCore'))
-    hairsim.planning.registerRegionPlanner("strict", @(varargin) hairsim.planning.planRegionCore( ...
-        varargin{:}, ...
-        'OrientationStrategy', @hairsim.planning.orientationStrategies.strict, ...
-        'LaneRecoveryStrategy', @hairsim.planning.laneRecoveryStrategies.failLane, ...
-        'TransitStrategy', @hairsim.planning.transitStrategies.direct, ...
-        'PlannerName', "strict"));
-
-    hairsim.planning.registerRegionPlanner("adaptive", @(varargin) hairsim.planning.planRegionCore( ...
-        varargin{:}, ...
-        'OrientationStrategy', @hairsim.planning.orientationStrategies.fallbackGrid, ...
-        'LaneRecoveryStrategy', @hairsim.planning.laneRecoveryStrategies.failLane, ...
-        'TransitStrategy', @hairsim.planning.transitStrategies.direct, ...
-        'PlannerName', "adaptive"));
-
-    hairsim.planning.registerRegionPlanner("intralane", @(varargin) hairsim.planning.planRegionCore( ...
-        varargin{:}, ...
-        'OrientationStrategy', @hairsim.planning.orientationStrategies.strict, ...
-        'LaneRecoveryStrategy', @hairsim.planning.laneRecoveryStrategies.bridgeLift, ...
-        'TransitStrategy', @hairsim.planning.transitStrategies.direct, ...
-        'PlannerName', "intralane"));
-
-    hairsim.planning.registerRegionPlanner("railslide", @(varargin) hairsim.planning.planRegionCore( ...
-        varargin{:}, ...
-        'OrientationStrategy', @hairsim.planning.orientationStrategies.strict, ...
-        'LaneRecoveryStrategy', @hairsim.planning.laneRecoveryStrategies.failLane, ...
-        'TransitStrategy', @hairsim.planning.transitStrategies.railSlide, ...
-        'PlannerName', "railslide"));
-end
+%   The development tree also registers the experiment baselines
+%   (hairsim.benchmark.registerBaselinePlanners: geometricRaster); the
+%   release build does not ship +benchmark, so it lists only these two.
 
 hairsim.planning.registerRegionPlanner("camClipper", @hairsim.planning.camClipperPlanner);
 hairsim.planning.registerRegionPlanner("camClipperAgainstFlow", @(varargin) hairsim.planning.camClipperPlanner( ...
     varargin{:}, 'PlannerName', "camClipperAgainstFlow"));
+baselines = "hairsim.benchmark.registerBaselinePlanners";
+if ~isempty(which(baselines))
+    feval(baselines);
+end
 end

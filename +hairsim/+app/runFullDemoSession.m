@@ -2,24 +2,15 @@ function result = runFullDemoSession(options)
 %RUNFULLDEMOSESSION Plan + run all five scalp regions back to back in one
 %   continuous session: same scene/robot/hair/recording/view state carried
 %   across regions (hair cut by region N is visible when region N+1 plans
-%   and runs), one consolidated recording for the whole demo. Built as a
-%   thin loop around exactly the same subsystem calls
-%   hairsim.app.runAutoOnlySession already uses for one region -- no new
-%   subsystem, no architecture change.
+%   and runs), one consolidated recording for the whole demo.
 %
-%   Between regions at the SAME base placement, the robot moves there via
-%   the SAME validated LIFT -> TRANSFER -> LOWER transit strategy
-%   (hairsim.planning.transitStrategies.direct) already used to bridge
-%   strokes WITHIN one region -- called directly here on the last chained
-%   stroke of the previous region and the first chained stroke of the next
-%   region (an earlier, simpler version of this function used plain
-%   joint-space interpolation, which a real run showed driving the clipper
-%   up to 1.3 cm INTO the head between regions -- joint-space
-%   interpolation does not keep the Cartesian path clear of obstacles even
-%   when both endpoints are safe; this replaces it). If the validated
-%   bridge is infeasible for a given region pair, that one boundary falls
-%   back to a teleport and is flagged in result.regionResults.bridgeWarning
-%   (the demo is not aborted).
+%   Between regions the robot moves with the same retreat -> transfer ->
+%   approach connector the post-processor uses inside a region
+%   (hairsim.planning.planSafeConfigurationTransition: clipper model vs the
+%   exact head mesh, links vs the head hull + environment, arm + clipper
+%   self collision on every sample). If a connection is infeasible for a
+%   region pair, that one boundary falls back to a teleport and is flagged
+%   in result.regionResults.bridgeWarning (the demo is not aborted).
 %
 %   options.BasePlacementId selects the base placement for the whole demo:
 %     "fixed"       (default) -- the adapter's normal fixed mount.
@@ -132,6 +123,9 @@ hairAppState = hairsim.app.hair.createHairAppState(scene);
 % camClipper: the plan chooses its own rail stations per stroke and the hair
 % is cut by the comb-lift clipper model (the same predicate the planner used).
 [clipperTool, isCamClipper] = hairsim.planning.camClipperTool(options.PlannerName);
+if ~isCamClipper
+    error("hairsim:NotAClipperPlanner", "'%s' is not a camClipper-family planner.", options.PlannerName);
+end
 if isCamClipper
     hairAppState.hairLayer.cutting.model = hairsim.hair.cutting.createCombLiftCutModelForPlanner( ...
         options.PlannerName, hairAppState.hairLayer.haircutState, scene.headScene.headMeshWorld);
@@ -145,10 +139,6 @@ if isCamClipper
             hairsim.tool.createHeadDistanceQuery(scene.headScene.headMeshWorld), [180, 165, 150, 135, 195, 210, 120, 225, 240]);
         robotAppState.homeOverride = qPark;
         robotAppState = applyHomeOverride(robotAppState);
-        % Home legs (fold/unfold/closing) judge clearance with a sphere that
-        % bounds the real clipper head, as the camClipper post-processor does
-        robotAppState.transitClearanceRadiusM = hairsim.tool.clipperBoundingRadius( ...
-            clipperTool, robotAppState.modelContext.toolMount);
     end
 end
 initialActiveNodeCounts = hairAppState.hairLayer.haircutState.hairState.activeNodeCounts;
@@ -192,29 +182,7 @@ bundle = struct('qCandidate', {{}}, 'railThetaRad', {{}}, 'basePlacementId', {{}
 for regionName = options.RegionNames
     bridgeWarning = "";
 
-    if railPerRegion && ~isCamClipper
-        targetBasePlacementId = "rail" + regionRailStationDeg(regionName);
-        if ~isempty(previousLastStroke) && targetBasePlacementId ~= robotAppState.state.basePlacementId
-            qBeforeFold = previousLastStroke.planResult.replayPositions(:, end);
-            [robotAppState, hairAppState, recordingState, numTicks, bundle, slideWarning] = foldSlideUnfold( ...
-                robotAppState, hairAppState, recordingState, viewState, scene, floorZ, numTicks, bundle, ...
-                qBeforeFold, previousBridgeLabel, targetBasePlacementId, options.RailSlideStepDeg);
-            bridgeWarning = slideWarning;
-            bridgeFromHome = true;
-            previousBridgeLabel = sprintf("Home@%s", targetBasePlacementId);
-        end
-    end
-
     plannerNameForRegion = options.PlannerName;
-    if railPerRegion && ~isCamClipper
-        % "railslide" {strict orientation, failLane recovery, railSlide
-        % transit} is the only registered preset that can slide the base
-        % to reach a lane the fixed-station "strict" transit can't chain
-        % -- requires robotModel.railContextBuilder/railThetaCurrentRad,
-        % which hairsim.app.robot.switchBase only sets for a "rail<deg>"
-        % placement (see that function and hairsim.app.planning.planHaircut).
-        plannerNameForRegion = "railslide";
-    end
     planRequest = struct( ...
         'robotModel', robotAppState.modelContext, ...
         'qCurrent', robotAppState.state.qCurrent, ...
@@ -252,8 +220,7 @@ for regionName = options.RegionNames
 
     if isCamClipper
         % camClipper strokes carry their own station; regions are always
-        % entered through the generic safe connector (its strokes are not
-        % in the LIFT/TRANSFER/LOWER format transitStrategies.direct reads)
+        % entered through the generic safe connector
         targetTheta = firstStroke.railThetaRad;
         currentTheta = robotAppState.state.railThetaRad;
         if isfinite(targetTheta) && (~isfinite(currentTheta) || ...
@@ -277,32 +244,6 @@ for regionName = options.RegionNames
             robotAppState, hairAppState, recordingState, viewState, scene, floorZ, numTicks, bundle);
         bridgeWarning = strtrim(bridgeWarning + " " + unfoldWarning);
         bridgeFromHome = false;
-    elseif ~isempty(previousLastStroke)
-        bridgeLabel = sprintf("Bridge %s->%s", previousBridgeLabel, regionName);
-        bridgeCtx = buildBridgeCtx(robotAppState, scene);
-        [bridgeTransit, ~] = hairsim.planning.transitStrategies.direct( ...
-            previousLastStroke, firstStroke, [], bridgeCtx, regionPlan.params, ...
-            @(msg) fprintf('[%s] %s\n', bridgeLabel, msg), bridgeLabel);
-        if bridgeTransit.feasible
-            bridgeSamples = bridgeTransit.planResult.replayPositions;
-            numBridgeSamples = size(bridgeSamples, 2);
-            for sampleIdx = 1:numBridgeSamples
-                poseCommand = struct( ...
-                    'qCandidate', bridgeSamples(:, sampleIdx), 'solved', true, 'toolTipWorldM', zeros(1, 3), ...
-                    'statusLabel', sprintf("%s:%d/%d", bridgeLabel, sampleIdx, numBridgeSamples), ...
-                    'toolTipErrorM', 0, 'targetTipWorldM', zeros(1, 3), 'desiredTipWorldM', zeros(1, 3), ...
-                    'safeTipWorldM', zeros(1, 3), 'governorActive', false, 'cutFlag', false);
-                [robotAppState, hairAppState, recordingState, tickCounted, bundle] = applyAndRecordTick( ...
-                    poseCommand, robotAppState, hairAppState, recordingState, viewState, scene, floorZ, bundle);
-                numTicks = numTicks + tickCounted;
-            end
-        else
-            newWarning = sprintf("validated bridge infeasible (%s); fell back to a teleport", bridgeTransit.reason);
-            bridgeWarning = strtrim(bridgeWarning + " " + newWarning);
-            warning("hairsim:FullDemoBridgeInfeasible", "%s: %s", bridgeLabel, newWarning);
-            robotAppState.state.qCommanded = qJumpTarget;
-            robotAppState.state.qCurrent = qJumpTarget;
-        end
     else
         robotAppState.state.qCommanded = qJumpTarget;
         robotAppState.state.qCurrent = qJumpTarget;
@@ -375,7 +316,7 @@ config = hairsim.control.createRobotHaircutConfig(scene.paths, recordingState.ru
     'TargetHairLengthM', options.TargetLengthM, ...
     'TargetHairLengthToleranceM', hairAppState.hairLayer.haircutState.params.targetHairLengthToleranceM);
 [recordingState, recordingResult] = hairsim.app.recording.finalizeSession(recordingState, ...
-    robotAppState.modelContext, scene.paths, scene.headScene.headMeshSafetyWorld, ...
+    robotAppState.modelContext, scene.paths, scene.headScene.headMeshWorld, ...
     initialActiveNodeCounts, hairAppState.hairLayer.haircutState, {}, config); %#ok<ASGLU>
 
 bundle.qCandidate = [bundle.qCandidate{:}];
@@ -438,28 +379,21 @@ end
 end
 
 function ctx = buildSafeTransitionCtx(robotAppState, scene)
-%BUILDSAFETRANSITIONCTX ctx for hairsim.planning.planSafeConfigurationTransition
-%   (a different, smaller field set than hairsim.planning.
-%   transitStrategies.direct's ctx -- see that function's own header).
-%   Reads scene.headScene (public), never robotAppState.headScene (the
-%   Robot/Base subsystem's own private bookkeeping) -- same rule
-%   buildBridgeCtx already follows.
-armOnlyRobot = copy(robotAppState.modelContext.robot);
-if any(strcmp(armOnlyRobot.BodyNames, 'ClipperTool_Link'))
-    removeBody(armOnlyRobot, 'ClipperTool_Link');
-end
+%BUILDSAFETRANSITIONCTX ctx for hairsim.planning.planSafeConfigurationTransition,
+%   rebuilt from the CURRENT robotAppState.modelContext (it changes across a
+%   rail-station switch): the arm, the arm + clipper body for self
+%   collision, and the clipper model with the exact head mesh for clearance.
+%   Reads scene.headScene (public), never robotAppState.headScene.
+mc = robotAppState.modelContext;
+tool = mc.toolMount.tool;
 ctx = struct( ...
-    'robot', robotAppState.modelContext.robot, ...
-    'armOnlyRobot', armOnlyRobot, ...
-    'endEffector', robotAppState.modelContext.endEffector, ...
-    'toolMount', robotAppState.modelContext.toolMount, ...
-    'headMeshSafetyWorld', scene.headScene.headMeshSafetyWorld, ...
+    'robot', mc.robot, ...
+    'armWithToolRobot', hairsim.tool.createArmWithClipperBody(mc.robot, mc.endEffector, tool, mc.qHome), ...
+    'endEffector', mc.endEffector, ...
+    'tool', tool, ...
+    'headQuery', hairsim.tool.createHeadDistanceQuery(scene.headScene.headMeshWorld), ...
     'headCenterWorldM', scene.headScene.headCenterWorldM, ...
-    'collisionObjects', {robotAppState.modelContext.headCollision});
-if isfield(robotAppState, 'transitClearanceRadiusM')   % camClipper: bound the real clipper head
-    ctx.toolMount.toolClearanceRadiusM = max(ctx.toolMount.toolClearanceRadiusM, ...
-        robotAppState.transitClearanceRadiusM);
-end
+    'collisionObjects', {mc.headCollision});
 end
 
 function [robotAppState, hairAppState, recordingState, numTicks, bundle, warningText] = replaySafeTransition( ...
@@ -502,35 +436,6 @@ thetaStepsRad = fromThetaRad + delta * t;
 thetaStepsRad(end) = toThetaRad;
 end
 
-function ctx = buildBridgeCtx(robotAppState, scene)
-%BUILDBRIDGECTX The same "legacy merged context"
-%   hairsim.app.planning.planHaircut builds internally for
-%   hairsim.planning.planRegionCore, rebuilt fresh from the CURRENT
-%   robotAppState.modelContext (which changes across a rail-station
-%   switch) so hairsim.planning.transitStrategies.direct can be called
-%   directly for cross-region/cross-station bridging, exactly as
-%   planRegionCore's own chain-building loop calls it for in-region
-%   transits.
-armOnlyRobot = copy(robotAppState.modelContext.robot);
-if any(strcmp(armOnlyRobot.BodyNames, 'ClipperTool_Link'))
-    removeBody(armOnlyRobot, 'ClipperTool_Link');
-end
-ctx = struct( ...
-    'robot', robotAppState.modelContext.robot, ...
-    'endEffector', robotAppState.modelContext.endEffector, ...
-    'toolMount', robotAppState.modelContext.toolMount, ...
-    'headCollision', {robotAppState.modelContext.headCollision}, ...
-    'qHome', robotAppState.modelContext.qHome(:), ...
-    'rootDir', robotAppState.modelContext.rootDir, ...
-    'headMeshWorld', scene.headScene.headMeshWorld, ...
-    'headMeshSafetyWorld', scene.headScene.headMeshSafetyWorld, ...
-    'headCenterWorldM', scene.headScene.headCenterWorldM, ...
-    'R_world_head', scene.headScene.R_world_head, ...
-    'numJoints', numel(robotAppState.modelContext.qHome), ...
-    'redundantJointIndices', 1:numel(robotAppState.modelContext.qHome), ...
-    'armOnlyRobot', armOnlyRobot);
-end
-
 function [robotAppState, hairAppState, recordingState, numTicks, bundle, warningText] = foldSlideUnfold( ...
         robotAppState, hairAppState, recordingState, viewState, scene, floorZ, numTicks, bundle, ...
         qBeforeFold, previousBridgeLabel, targetBasePlacementId, stepDeg)
@@ -539,11 +444,7 @@ function [robotAppState, hairAppState, recordingState, numTicks, bundle, warning
 %   pose of the previous region's chain) to qHome at the CURRENT station
 %   via hairsim.planning.planSafeConfigurationTransition -- the same
 %   generic, region/lane-agnostic retreat -> joint-line/shell-arc ->
-%   approach connector the 2026-09-25 rail study used for exactly this
-%   "arbitrary pose <-> Home" problem (hairsim.planning.transitStrategies.
-%   direct's LIFT/TRANSFER/LOWER assumes a scalp-following geometry on
-%   both ends, which qHome doesn't have, and was found NOT reliable for
-%   this leg -- see the function's own history), (2) animate the rail
+%   approach connector, (2) animate the rail
 %   sliding station to station with q held at qHome
 %   (hairsim.app.robot.applyRailStationForReplay rebuilds the robot model
 %   at each intermediate theta; a live arm self-collision + robot-vs-head
@@ -567,22 +468,15 @@ end
 toThetaRad = deg2rad(str2double(extractAfter(targetBasePlacementId, "rail")));
 thetaStepsRad = railSlideSteps(fromThetaRad, toThetaRad, deg2rad(stepDeg));
 qHome = robotAppState.modelContext.qHome;
-armOnlyRobot = copy(robotAppState.modelContext.robot);
-if any(strcmp(armOnlyRobot.BodyNames, 'ClipperTool_Link'))
-    removeBody(armOnlyRobot, 'ClipperTool_Link');
-end
 for stepIdx = 1:numel(thetaStepsRad)
     robotAppState = hairsim.app.robot.applyRailStationForReplay(robotAppState, thetaStepsRad(stepIdx));
-    armOnlyRobot = copy(robotAppState.modelContext.robot);
-    if any(strcmp(armOnlyRobot.BodyNames, 'ClipperTool_Link'))
-        removeBody(armOnlyRobot, 'ClipperTool_Link');
-    end
+    armOnlyRobot = robotAppState.modelContext.robot;
     unsafe = checkCollision(armOnlyRobot, qHome, 'SkippedSelfCollisions', 'parent');
     reason = "SELF_COLLISION";
     if ~unsafe
         [clear_, reason, ~] = hairsim.motion.validateClipperRobotCollision( ...
             robotAppState.modelContext.robot, qHome, robotAppState.modelContext.endEffector, ...
-            robotAppState.modelContext.toolMount, robotAppState.modelContext.headCollision, 0.001, true);
+            robotAppState.modelContext.headCollision, 0.001, true);
         unsafe = ~clear_;
     end
     if unsafe && strlength(warningText) == 0
@@ -619,8 +513,8 @@ function [robotAppState, hairAppState, recordingState, tickCounted, bundle] = ap
 %APPLYANDRECORDTICK Shared per-sample body for a normal stroke/transit
 %   replay sample (from hairsim.execution.stepExecution), a cross-region
 %   bridge sample, or a rail-slide sample (both from
-%   hairsim.planning.transitStrategies.direct or a fixed qHome, called
-%   directly in runFullDemoSession): apply the pose, step hair, append a
+%   hairsim.planning.planSafeConfigurationTransition or a fixed qHome,
+%   called directly in runFullDemoSession): apply the pose, step hair, append a
 %   recording sample, render, AND append this sample to the flat replay
 %   bundle (see runFullDemoSession's own header) -- this is the ONE choke
 %   point every tick of the whole demo passes through, so it is also the

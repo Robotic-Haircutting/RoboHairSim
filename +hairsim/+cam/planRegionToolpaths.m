@@ -9,11 +9,16 @@ function toolpathPlan = planRegionToolpaths(haircutState, regionName, headMeshWo
 %     region, tool, surface (headQuery stripped), segments (struct array,
 %     hairsim.cam.buildSegments), coveredMain / covered (region roots
 %     covered by the main raster / by everything), C_main, C_A (over roots
-%     needing cut), placement (hairsim.eval.buildPlacementMap, if
+%     needing cut), C_A_geometric (the same toolpaths with the feed-direction
+%     rule switched off: purely geometric coverage), placement (hairsim.eval.buildPlacementMap, if
 %     ComputePlacement), restHistory, passInfo, blockedFeetWorldM, timing,
 %     flowSplit (hairsim.cam.splitSurfaceByFlow info).
 %   A region whose hair flow diverges (the crown) is rastered as two parts,
 %   each against its own flow; options.FlowSplitMinResultant = 0 disables.
+%   options.Raster = "geometric": the hair-unaware baseline -- passes along
+%   the region's geometric principal axis, zigzag feed, no flow split, no
+%   rest machining (which picks feeds from the flow); everything else
+%   (segments, tool, contact lift, coverage rule) unchanged.
 
 arguments
     haircutState (1, 1) struct
@@ -28,7 +33,15 @@ arguments
     % one segment per whole pass (the "do not split lanes" ablation)
     options.SegmentLengthM (1, 1) double {mustBePositive} = 0.04
     options.FlowSplitMinResultant (1, 1) double = 0.5
+    options.Raster (1, 1) string {mustBeMember(options.Raster, ["flow", "geometric"])} = "flow"
     options.OnProgress = []
+end
+
+rasterArgs = {};
+if options.Raster == "geometric"
+    options.FlowSplitMinResultant = 0;
+    options.RestMachining = false;
+    rasterArgs = {'Direction', "geometric", 'Feed', "zigzag"};
 end
 
 timer = tic;
@@ -48,10 +61,10 @@ if flowSplit.split
         regionName, flowSplit.resultant, flowSplit.partSizes));
 end
 passes = {};
-passInfo = struct('planeOffsetsM', {}, 'stepOverM', {}, 'targetStepM', {});
+passInfo = struct('planeOffsetsM', {}, 'stepOverM', {}, 'targetStepM', {}, 'passAxis', {});
 for k = 1:numel(parts)
     [partPasses, passInfo(k)] = hairsim.cam.generateRasterPasses(parts{k}, headMeshWorld, tool, ...
-        'OverlapFraction', options.OverlapFraction);
+        'OverlapFraction', options.OverlapFraction, rasterArgs{:});
     passes = [passes, partPasses]; %#ok<AGROW>
 end
 [segments, blocked] = hairsim.cam.buildSegments(passes, surface, tool, "main", ...
@@ -80,6 +93,19 @@ if options.ComputePlacement
 end
 timing.totalS = toc(timer);
 
+% the same toolpaths judged WITHOUT the feed-direction rule: what a purely
+% geometric coverage check would report (equals C_A for a tool without it)
+coveredGeometric = covered;
+if isfinite(tool.maxFeedAngleRad)
+    noFeedRule = tool;
+    noFeedRule.maxFeedAngleRad = Inf;
+    coveredGeometric = false(size(covered));
+    for s = 1:numel(segments)
+        coveredGeometric = coveredGeometric | hairsim.eval.sweepCombLiftCoverage(surface.rootsWorldM, ...
+            segments(s).T_cut, noFeedRule);
+    end
+end
+
 needs = surface.needsCut;
 toolpathPlan = struct();
 toolpathPlan.region = regionName;
@@ -91,14 +117,16 @@ toolpathPlan.covered = covered;
 toolpathPlan.numNeedsCut = nnz(needs);
 toolpathPlan.C_main = mean(coveredMain(needs));
 toolpathPlan.C_A = mean(covered(needs));
+toolpathPlan.C_A_geometric = mean(coveredGeometric(needs));
 toolpathPlan.placement = placement;
 toolpathPlan.restHistory = restHistory;
 toolpathPlan.passInfo = passInfo;
 toolpathPlan.blockedFeetWorldM = blocked;
 toolpathPlan.timing = timing;
 toolpathPlan.flowSplit = flowSplit;
-report(sprintf("CAM %s: %d segments, C_main %.1f%%, C_A %.1f%% (%.0f s)", regionName, ...
-    numel(segments), 100 * toolpathPlan.C_main, 100 * toolpathPlan.C_A, timing.totalS));
+report(sprintf("CAM %s: %d segments, C_main %.1f%%, C_A %.1f%% (geometric %.1f%%) (%.0f s)", regionName, ...
+    numel(segments), 100 * toolpathPlan.C_main, 100 * toolpathPlan.C_A, 100 * toolpathPlan.C_A_geometric, ...
+    timing.totalS));
 end
 
 function progress(fn, msg)

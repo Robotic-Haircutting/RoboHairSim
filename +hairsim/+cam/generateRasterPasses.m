@@ -18,8 +18,15 @@ function [passes, info] = generateRasterPasses(surface, headMeshWorld, tool, opt
 %   the roots near the current plane) -- an iso-scallop-style adaptive
 %   step-over. Anything still missed is left to rest machining.
 %
+%   options.Direction = "geometric" (the geometric-raster baseline) ignores
+%   the hair entirely: passes run along the region's longest extent (the
+%   principal axis of its roots in the mean tangent plane, the usual CAM
+%   choice that minimises the number of passes) and options.Feed =
+%   "zigzag" alternates the feed from one plane to the next
+%   (boustrophedon) instead of pushing against the flow.
+%
 %   passes: cell array of (K,3) foot-point polylines on the scalp, each in
-%   feed order. info: planeOffsetsM, stepOverM (per plane).
+%   feed order. info: planeOffsetsM, stepOverM (per plane), passAxis.
 
 arguments
     surface (1, 1) struct
@@ -29,6 +36,14 @@ arguments
     options.ClipM (1, 1) double {mustBePositive} = 0.012
     options.SampleStepM (1, 1) double {mustBePositive} = 0.0025
     options.MinPassLengthM (1, 1) double {mustBePositive} = 0.008
+    options.Direction (1, 1) string {mustBeMember(options.Direction, ["flow", "geometric"])} = "flow"
+    options.Feed (1, 1) string {mustBeMember(options.Feed, ["againstFlow", "zigzag"])} = "againstFlow"
+end
+
+passAxis = surface.meanFlow;
+if options.Direction == "geometric"
+    passAxis = principalTangentAxis(surface);
+    surface.transverse = cross(surface.meanNormal, passAxis);
 end
 
 targetStep = 2 * tool.bladeHalfWidthM * (1 - options.OverlapFraction);
@@ -42,16 +57,22 @@ passes = {};
 planeOffsets = [];
 stepOvers = [];
 u0 = min(u) + 0.5 * targetStep;
+planeIdx = 0;
 while u0 <= max(u) + 0.5 * targetStep
     planePoint = surface.centreWorldM + u0 * surface.transverse;
     polylines = hairsim.analysis.sliceMeshAtPlane(vertices, faces, planePoint, surface.transverse);
+    planeIdx = planeIdx + 1;
     for p = 1:numel(polylines)
         for run = clipToRegion(polylines{p}, roots, options.ClipM, options.MinPassLengthM)
             feet = resample(run{1}, options.SampleStepM);
             if size(feet, 1) < 2
                 continue;
             end
-            passes{end + 1} = orientAgainstFlow(feet, surface); %#ok<AGROW>
+            if options.Feed == "zigzag"
+                passes{end + 1} = orientAlong(feet, passAxis * (-1) ^ (planeIdx + 1)); %#ok<AGROW>
+            else
+                passes{end + 1} = orientAgainstFlow(feet, surface); %#ok<AGROW>
+            end
         end
     end
     near = abs(u - u0) <= targetStep;
@@ -64,7 +85,8 @@ while u0 <= max(u) + 0.5 * targetStep
     stepOvers(end + 1) = step; %#ok<AGROW>
     u0 = u0 + step;
 end
-info = struct('planeOffsetsM', planeOffsets, 'stepOverM', stepOvers, 'targetStepM', targetStep);
+info = struct('planeOffsetsM', planeOffsets, 'stepOverM', stepOvers, 'targetStepM', targetStep, ...
+    'passAxis', passAxis);
 end
 
 function runs = clipToRegion(polyline, roots, clipM, minLength)
@@ -111,6 +133,23 @@ end
 if dot(feet(end, :) - feet(1, :), flow) > 0
     feet = flipud(feet);
 end
+end
+
+function feet = orientAlong(feet, axis)
+if dot(feet(end, :) - feet(1, :), axis) < 0
+    feet = flipud(feet);
+end
+end
+
+function axis = principalTangentAxis(surface)
+% longest extent of the region's roots, in the plane of its mean normal
+n = surface.meanNormal;
+r = surface.rootsWorldM - surface.centreWorldM;
+r = r - (r * n') * n;
+[~, ~, V] = svd(r, 'econ');
+axis = V(:, 1)';
+axis = axis - dot(axis, n) * n;
+axis = axis / norm(axis);
 end
 
 function value = lowQuantile(x, p)

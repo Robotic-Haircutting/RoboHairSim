@@ -122,8 +122,7 @@ check(isequal(mixed.lengthGoal.targetActiveNodeCounts(back), zeroGoal.lengthGoal
 
 cutModel = hairsim.hair.cutting.createCombLiftCutModel(tool);
 T_ee = Tn / tool.T_ee_tcp;
-[hs2, info] = hairsim.hair.cutting.applyClipperHaircutStep(goal, [0, 0, 0], 0.013, ...
-    'CutModel', cutModel, 'ToolTransform', T_ee);
+[hs2, info] = hairsim.hair.cutting.applyClipperHaircutStep(goal, T_ee, cutModel);
 cutStrands = info.strandIndices;
 check(info.cutCount > 0 && all(hs2.hairState.activeNodeCounts(cutStrands) == ...
     goal.lengthGoal.targetActiveNodeCounts(cutStrands)), sprintf('comb-lift cut on the crown: %d strands cut exactly to target', info.cutCount));

@@ -26,16 +26,17 @@ function appState = createRobotAppState(adapterName, scene, options)
 %   hairsim.app.robot.switchBase doesn't need them repeated on every call.
 %
 %   options.ToolDisplay: "clipperHead" (default) draws the blade-head wedge
-%   of scene.paths.clipperDisplayStl (hairsim.motion.createClipperDisplayMesh)
-%   in place of the clipper sphere; "sphere" keeps the original sphere.
-%   Display only -- cutting and collision always use toolMount's sphere.
-%   Falls back to "sphere" (with a warning) if the STL is missing.
+%   of scene.paths.clipperDisplayStl (hairsim.motion.createClipperDisplayMesh);
+%   "model" draws the parametric clipper model itself. Display only --
+%   cutting, clearance and collision always use the clipper model
+%   (toolMount.tool). Falls back to "model" (with a warning) if the STL is
+%   missing.
 
 arguments
     adapterName (1, 1) string
     scene (1, 1) struct
     options.ToolMount = []
-    options.ToolDisplay (1, 1) string {mustBeMember(options.ToolDisplay, ["clipperHead", "sphere"])} = "clipperHead"
+    options.ToolDisplay (1, 1) string {mustBeMember(options.ToolDisplay, ["clipperHead", "model"])} = "clipperHead"
     options.CollisionMarginM (1, 1) double {mustBeNonnegative} = 0
     options.MaxToolTipErrorM (1, 1) double {mustBeNonnegative} = 0.03
     options.CeilingHeightM (1, 1) double {mustBePositive} = 0.89
@@ -85,7 +86,7 @@ if isfield(scene, 'paths') && isfield(scene.paths, 'clipperDisplayStl')
 end
 if strlength(stlPath) == 0 || ~isfile(stlPath)
     warning("hairsim:ClipperDisplayStlMissing", ...
-        "Clipper display STL not found (%s); drawing the clipper sphere instead.", stlPath);
+        "Clipper display STL not found (%s); drawing the parametric clipper model instead.", stlPath);
     return;
 end
 displayMesh = hairsim.motion.createClipperDisplayMesh(stlPath, toolMount);

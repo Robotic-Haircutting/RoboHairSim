@@ -11,14 +11,8 @@ function scene = loadScene(options)
 %   head_regions.json from that folder instead (same file names and
 %   formats the bundled placeholder uses -- see docs/EXTENDING.md).
 %
-%   options.PlanningDataDir additionally controls where
-%   hairsim.planning.planRegionCore looks for the frozen Coverage V1 lane
-%   data it needs (<PlanningDataDir>/outputs/runs/
-%   hair_coverage_planning_v1_frozen/...) and for data/head_regions.json;
-%   it defaults to this repo's own root, i.e. the bundled placeholder's
-%   own frozen lanes. Point it elsewhere if you have run the separate
-%   Coverage V1 lane-planning pipeline (see docs/EXTENDING.md) against
-%   your own head scan and want to plan against ITS frozen lanes instead.
+%   options.PlanningDataDir is the root the sessions read config/ from and
+%   write runs to (scene.rootDir); it defaults to this app's own root.
 %
 %   scene fields: paths, headScene (hairsim.createDefaultHeadScene's
 %   result), hairLayer, haircutState (= hairLayer.haircutState, the usual

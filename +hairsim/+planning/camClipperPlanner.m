@@ -19,6 +19,9 @@ function regionPlan = camClipperPlanner(haircutState, regionName, targetLengthM,
 %   options.PlannerName selects the preset's tool (hairsim.planning.camClipperTool):
 %   "camClipper" (feed direction ignored) or "camClipperAgainstFlow"
 %   (registered separately; comb lifts only hair pushed against its flow).
+%   "geometricRaster" is the hair-unaware baseline: the same pipeline with
+%   a geometric raster (hairsim.cam.planRegionToolpaths 'Raster',
+%   "geometric"), evaluated with the camClipperAgainstFlow tool.
 
 arguments
     haircutState (1, 1) struct
@@ -42,8 +45,12 @@ context.qHome = context.qHome(:);
 goalState = hairsim.hair.setUniformTargetLengthGoal(haircutState, targetLengthM);
 tool = hairsim.planning.camClipperTool(options.PlannerName);
 headQuery = hairsim.tool.createHeadDistanceQuery(context.headMeshWorld);
+raster = "flow";
+if options.PlannerName == "geometricRaster"
+    raster = "geometric";
+end
 toolpathPlan = hairsim.cam.planRegionToolpaths(goalState, regionName, context.headMeshWorld, tool, ...
-    'HeadQuery', headQuery, 'OnProgress', options.OnProgress);
+    'HeadQuery', headQuery, 'OnProgress', options.OnProgress, 'Raster', raster);
 [regionPlan, post] = hairsim.post.postProcessToolpaths(toolpathPlan, context, headQuery, goalState, ...
     'PlannerName', options.PlannerName, 'OnProgress', options.OnProgress);
 comparison = hairsim.eval.compareIdealVsRobot(toolpathPlan, post);

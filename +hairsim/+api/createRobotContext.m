@@ -4,8 +4,7 @@ function context = createRobotContext(adapterName, scene, options)
 %   equivalent of the robot/IK bootstrap every GUI script used to inline.
 %
 %   context = hairsim.api.createRobotContext("ur5e", scene) is the
-%   'context' argument hairsim.planning.planRegionCore (and every named
-%   preset built on it) expects: robot, endEffector, toolMount,
+%   'context' argument every registered region planner expects: robot, endEffector, toolMount,
 %   headMeshWorld, headMeshSafetyWorld, headCollision, headCenterWorldM,
 %   R_world_head, rootDir, qHome, qCurrent, redundantJointIndices,
 %   numJoints.
@@ -17,7 +16,7 @@ function context = createRobotContext(adapterName, scene, options)
 %   options.RailMode (default false): also attach context.railContextBuilder
 %   (hairsim.robot.createRailContextBuilder's closure) and
 %   context.railThetaCurrentRad (= options.RailThetaRad, the initial
-%   station), which hairsim.planning.transitStrategies.railSlide requires.
+%   station), which the post-processor's rail station search requires.
 %   options.RailRadiusM/RailBaseOffsetM pass through to
 %   createRailContextBuilder.
 

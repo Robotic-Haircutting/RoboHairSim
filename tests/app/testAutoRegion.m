@@ -17,10 +17,11 @@ arguments
     options.BasePlacementId (1, 1) string = "rail180"
     options.PlannerName (1, 1) string = "camClipperAgainstFlow"
     options.MinCoverage (1, 1) double = 1.0      % required C_B
+    options.AdapterName (1, 1) string = "ur5e"   % robot adapter; nothing else changes
 end
 
 scene = hairsim.api.loadScene();
-robotAppState = hairsim.app.robot.createRobotAppState("ur5e", scene);
+robotAppState = hairsim.app.robot.createRobotAppState(options.AdapterName, scene);
 if options.BasePlacementId ~= "fixed"
     robotAppState = hairsim.app.robot.switchBase(robotAppState, options.BasePlacementId);
 end
@@ -85,7 +86,7 @@ fprintf(['run: %d ticks, cut %d strands: %d in %s (evaluation B predicted %d, id
     numel(predicted), isequal(regionCut(:), predicted(:)), numel(cut) - numel(regionCut));
 assert(all(counts(cut) == target(cut)), "a strand was cut somewhere other than its target node");
 assert(isequal(regionCut(:), predicted(:)), "executed region cut differs from evaluation B");
-fprintf('PASS: Auto %s (%s, %s, %.1f cm)\n', options.RegionName, options.PlannerName, ...
-    options.BasePlacementId, 100 * options.TargetLengthM);
+fprintf('PASS: Auto %s (%s, %s, %s, %.1f cm)\n', options.RegionName, options.AdapterName, ...
+    options.PlannerName, options.BasePlacementId, 100 * options.TargetLengthM);
 result = struct('regionPlan', regionPlan, 'cutStrands', cut, 'numTicks', numTicks);
 end

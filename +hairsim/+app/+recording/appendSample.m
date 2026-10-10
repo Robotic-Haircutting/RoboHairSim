@@ -9,8 +9,7 @@ function recordingState = appendSample(recordingState, sample, T_world_ee_actual
 %   sample fields (the existing contract
 %   hairsim.control.appendRobotHaircutSample already expects): time, mode,
 %   status, solved, cutFlag, governorActive, toolTipErrorM, cutInfo, q,
-%   targetTipWorldM, desiredTipWorldM, safeTipWorldM, actualTipWorldM,
-%   clipperCenterWorldM.
+%   targetTipWorldM, desiredTipWorldM, safeTipWorldM, actualTipWorldM.
 %
 %   T_world_ee_actual: the 4x4 end-effector transform for this sample
 %   (needed only by the clipper trajectory recorder, which derives tip

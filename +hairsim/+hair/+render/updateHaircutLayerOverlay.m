@@ -16,6 +16,6 @@ delete(findobj(ax, 'Tag', 'HairSimSceneOverlay'));
 handles = hairsim.hair.render.drawHaircutLayer(ax, haircutState, ...
     'DebrisColor', options.DebrisColor, ...
     'DebrisLineWidth', options.DebrisLineWidth);
-set([handles.hair, handles.debris], 'Tag', 'HairSimSceneOverlay');
+set([handles.hair(:); handles.debris], 'Tag', 'HairSimSceneOverlay');
 drawnow limitrate;
 end

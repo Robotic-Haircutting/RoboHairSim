@@ -1,29 +1,28 @@
 function [hairLayer, updateInfo] = updateHairLayerForClipper( ...
-        hairLayer, clipperSphereCenterWorldM, toolRadiusM, cutFlag, ...
-        headHullWorld, floorZ, options)
+        hairLayer, T_world_ee, cutFlag, headHullWorld, floorZ, options)
 %UPDATEHAIRLAYERFORCLIPPER Advance cutting, physics, and debris for one frame.
-
+%   T_world_ee: the end-effector pose this frame. Cutting needs the clipper
+%   cut model in hairLayer.cutting.model (hairsim.app.hair.installClipperCut
+%   or hairsim.hair.cutting.createCombLiftCutModelForPlanner).
 arguments
     hairLayer (1, 1) struct
-    clipperSphereCenterWorldM (1, 3) double {mustBeFinite}
-    toolRadiusM (1, 1) double {mustBePositive}
+    T_world_ee (4, 4) double
     cutFlag (1, 1) logical
     headHullWorld (1, 1) struct
     floorZ (1, 1) double {mustBeFinite}
     options.DebrisRandomScale (1, 1) double {mustBeNonnegative} = 1.0
-    % T_world_ee; only needed when hairLayer.cutting.model is set
-    % (hairsim.hair.cutting.createGuardBladeCutModel).
-    options.ToolTransform = []
     % true: physics + debris only, cutting untouched (an idle frame, the
     % robot did not move: a comb-lift sweep in progress is NOT broken)
     options.SkipCutting (1, 1) logical = false
 end
-
 cutModel = [];
 if isfield(hairLayer.cutting, 'model') && ~options.SkipCutting
     cutModel = hairLayer.cutting.model;
 end
-
+if cutFlag && ~options.SkipCutting && isempty(cutModel)
+    error("hairsim:NoCutModel", ...
+        "No clipper cut model installed (hairsim.app.hair.installClipperCut): nothing can be cut.");
+end
 updateInfo = struct( ...
     'didCut', false, ...
     'cutCount', 0, ...
@@ -44,13 +43,11 @@ if cutFlag && ~options.SkipCutting
         previousToolTransform = cutModel.lastToolTransform;
     end
     [hairLayer.haircutState, cutInfo] = hairsim.hair.cutting.applyClipperHaircutStep( ...
-        hairLayer.haircutState, clipperSphereCenterWorldM, toolRadiusM, ...
-        'CutRadiusScale', hairLayer.cutting.cutRadiusScale, ...
+        hairLayer.haircutState, T_world_ee, cutModel, ...
         'DebrisRandomScale', options.DebrisRandomScale, ...
-        'CutModel', cutModel, 'ToolTransform', options.ToolTransform, ...
         'PreviousToolTransform', previousToolTransform);
     if isCombLift
-        hairLayer.cutting.model.lastToolTransform = options.ToolTransform;
+        hairLayer.cutting.model.lastToolTransform = T_world_ee;
     end
     updateInfo.didCut = cutInfo.cutCount > 0;
     updateInfo.cutCount = cutInfo.cutCount;
@@ -68,9 +65,20 @@ if ~isempty(strandIndices)
     hairLayer.haircutState.params.rigidity = hairLayer.physics.rigidity;
     hairLayer.haircutState.params.damping = hairLayer.physics.damping;
     hairLayer.haircutState.params.dt = hairLayer.physics.dt;
+    % the hair collides with the exact head mesh when the layer carries its
+    % query (hairsim.hair.createHairLayer), else with the head hull
+    headCollision = headHullWorld;
+    if isfield(hairLayer.physics, 'headQuery') && ~isempty(hairLayer.physics.headQuery)
+        headCollision = hairLayer.physics.headQuery;
+    end
+    iterations = 10;
+    if isfield(hairLayer.physics, 'constraintIterations')
+        iterations = hairLayer.physics.constraintIterations;
+    end
     hairLayer.haircutState = hairsim.hair.dynamics.stepHaircutPhysics( ...
-        hairLayer.haircutState, headHullWorld, ...
+        hairLayer.haircutState, headCollision, ...
         'HeadClearanceM', hairLayer.physics.headClearanceM, ...
+        'ConstraintIterations', iterations, ...
         'StrandIndices', strandIndices);
     hairLayer.physics.batchCounter = hairLayer.physics.batchCounter + 1;
     updateInfo.didPhysics = true;

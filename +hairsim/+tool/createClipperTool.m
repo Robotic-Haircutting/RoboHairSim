@@ -1,11 +1,10 @@
 function tool = createClipperTool(options)
 %CREATECLIPPERTOOL The hair clipper as the single tool model of the
 %   camClipper pipeline (+cam toolpaths, +post robot post-processing,
-%   +eval coverage, comb-lift cutting). Replaces the r = 13 mm sphere of
-%   hairsim.motion.createClipperToolMount for this pipeline only; that
-%   sphere stays untouched for the older planners and teleoperation.
+%   +eval coverage, comb-lift cutting), of the Teleop and of every
+%   clearance / collision gate (hairsim.motion.createClipperToolMount).
 %
-%   Frames. EE frame = Tool Pose V1 (hairsim.analysis.planToolPosesForLane):
+%   Frames. EE frame:
 %   x = feed direction, y = blade width, z = toward the scalp (-n). The TCP
 %   frame has the same axes, origin at the centre of the teeth face:
 %       T_ee_tcp = translation [0, 0, tcpOffsetM].

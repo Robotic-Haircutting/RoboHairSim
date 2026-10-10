@@ -15,5 +15,4 @@ sampleLog.targetTipWorldM = zeros(0, 3);
 sampleLog.desiredTipWorldM = zeros(0, 3);
 sampleLog.safeTipWorldM = zeros(0, 3);
 sampleLog.actualTipWorldM = zeros(0, 3);
-sampleLog.clipperCenterWorldM = zeros(0, 3);
 end

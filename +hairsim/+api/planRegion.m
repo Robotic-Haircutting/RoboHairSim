@@ -1,15 +1,15 @@
 function regionPlan = planRegion(haircutState, regionName, targetLengthM, context, plannerName, options)
 %PLANREGION Plan one scalp region with a named planner, as a library call.
 %   regionPlan = hairsim.api.planRegion(haircutState, regionName,
-%   targetLengthM, context, "strict")
+%   targetLengthM, context, "camClipperAgainstFlow")
 %
 %   plannerName is looked up via hairsim.planning.getRegionPlanner --
-%   "strict", "adaptive", "intralane" are built in (see
-%   hairsim.planning.registerBuiltinPresets); register your own with
+%   "camClipper" and "camClipperAgainstFlow" are built in (the development
+%   tree adds "geometricRaster"; see hairsim.planning.registerBuiltinPresets); register your own with
 %   hairsim.planning.registerRegionPlanner and pass its name here.
 %
-%   options passes through to the planner (OnProgress, LaneIndices,
-%   PlanTransits -- see hairsim.planning.planRegionCore).
+%   options passes through to the planner (OnProgress, PlanTransits;
+%   LaneIndices is accepted and ignored by the built-in planners).
 
 arguments
     haircutState (1, 1) struct

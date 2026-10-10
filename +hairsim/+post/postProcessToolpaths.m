@@ -60,7 +60,7 @@ if isnan(options.StationsDeg(1))
     try
         [qPark, parkReport] = hairsim.post.findClipperParkConfiguration(baseCtx, tool, headQuery, NaN);
     catch parkError
-        % the adapter Home was tuned for the old sphere and may leave the
+        % the adapter Home may leave the
         % real clipper at / inside the head: say so instead of hiding it
         warning("hairsim:post:NoClipperParkPose", ...
             "No clipper-safe park pose on this base (%s); transits use the adapter Home.", parkError.message);
@@ -479,7 +479,7 @@ for m = 1:numel(moves)
         sctx = stationCtx(th);
         T = getTransform(sctx.robot, q, char(sctx.endEffector)) * tool.T_ee_tcp;
         robotClear = hairsim.motion.validateClipperRobotCollision(sctx.robot, q, sctx.endEffector, ...
-            sctx.toolMount, sctx.headCollision, 0.001, true, 'SkipClipperHeadCheck', false);
+            sctx.headCollision, 0.001, true);
         if ~hairsim.tool.evaluateClipperClearance(T, tool, headQuery).ok || ~robotClear || ...
                 checkCollision(sctx.armWithToolRobot, q, 'SkippedSelfCollisions', 'parent')
             ok = false;
@@ -497,12 +497,8 @@ end
 end
 
 function [Q, ok, reason, legLengths] = runLegs(legs, stationCtx, tool, headQuery)
-% hairsim.planning.planSafeConfigurationTransition guards with the old
-% clipper sphere (toolMount.toolClearanceRadiusM about T_ee_tool_center).
-% Its transfer moves are planned here with that sphere inflated to bound
-% the clipper head (blade corners + wedge), and every sample is then
-% re-checked with the exact clipper model -- the shared function itself
-% is not modified.
+% Each leg: hairsim.planning.planSafeConfigurationTransition at one station,
+% with the clipper model and the exact head mesh (the same gates as a cut).
 Q = zeros(numel(legs{1}{1}), 0);
 legLengths = zeros(1, numel(legs));
 ok = true;
@@ -510,8 +506,8 @@ reason = "OK";
 for l = 1:numel(legs)
     [qa, qb, th] = legs{l}{:};
     sctx = stationCtx(th);
-    sctx.toolMount.toolClearanceRadiusM = max(sctx.toolMount.toolClearanceRadiusM, ...
-        hairsim.tool.clipperBoundingRadius(tool, sctx.toolMount));
+    sctx.tool = tool;
+    sctx.headQuery = headQuery;
     if max(abs(qa - qb)) < 1e-9
         legLengths(l) = 0;
         continue;
@@ -521,14 +517,6 @@ for l = 1:numel(legs)
         ok = false;
         reason = "TRANSIT_" + string(res.reason);
         return;
-    end
-    for k = 1:size(res.Q, 2)
-        T = getTransform(sctx.robot, res.Q(:, k), char(sctx.endEffector)) * tool.T_ee_tcp;
-        if ~hairsim.tool.evaluateClipperClearance(T, tool, headQuery).ok
-            ok = false;
-            reason = "TRANSIT_CLIPPER_CLEARANCE";
-            return;
-        end
     end
     Q = [Q, res.Q]; %#ok<AGROW>
     legLengths(l) = size(res.Q, 2);

@@ -41,7 +41,7 @@ end
 
 function toolConfig = createToolConfig(toolMount)
 toolConfig = struct();
-copyFields = ["toolShape", "toolRadiusM", "toolClearanceRadiusM"];
+copyFields = "toolShape";
 for fieldName = copyFields
     if isfield(toolMount, fieldName)
         toolConfig.(fieldName) = toolMount.(fieldName);

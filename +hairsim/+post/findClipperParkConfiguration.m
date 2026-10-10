@@ -1,8 +1,7 @@
 function [qPark, report] = findClipperParkConfiguration(baseCtx, tool, headQuery, stationsDeg, options)
 %FINDCLIPPERPARKCONFIGURATION A clipper-safe "Home" for the camClipper
-%   pipeline. The GUI Home pose (createGuiHomeConfiguration) was tuned for
-%   the old sphere: with the real clipper it leaves the blade 0.3 mm INSIDE
-%   the head at theta = 180 deg. Cross-station transits park the arm here
+%   pipeline. The adapter's tuned Home pose can leave the clipper blade
+%   inside the head at some rail stations. Cross-station transits park the arm here
 %   while the rail moves, so it must be clear at EVERY station.
 %
 %   From Home, the TCP is pushed straight away from the head centre (same
@@ -72,7 +71,7 @@ for i = 1:numel(contexts)
     T = getTransform(s.robot, q, char(s.endEffector)) * tool.T_ee_tcp;
     c = hairsim.tool.evaluateClipperClearance(T, tool, headQuery, 'CapM', 0.2);
     robotClear = hairsim.motion.validateClipperRobotCollision(s.robot, q, s.endEffector, ...
-        s.toolMount, s.headCollision, 0.001, true, 'SkipClipperHeadCheck', false);
+        s.headCollision, 0.001, true);
     selfFree = ~checkCollision(s.armWithToolRobot, q, 'SkippedSelfCollisions', 'parent');
     perStation(i).clearanceM = c.minM;
     perStation(i).ok = c.minM >= clearanceM && robotClear && selfFree;

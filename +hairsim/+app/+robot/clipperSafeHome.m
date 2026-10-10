@@ -1,7 +1,7 @@
 function [qHome, parkCache] = clipperSafeHome(robotAppState, scene, parkCache)
 %CLIPPERSAFEHOME The Home pose the interactive entries park the robot at.
-%   The adapter's Home was tuned for the old clipper sphere and leaves the
-%   real blade inside the head (-0.3 mm at rail 180 deg); this is the
+%   The adapter's Home can leave the clipper blade inside the head at some
+%   rail stations; this is the
 %   clipper-safe park pose instead (hairsim.post.findClipperParkConfiguration:
 %   Home pushed out from the head until the clipper clears it by 20 mm),
 %   computed once per robot setup. Falls back to the adapter Home, with a

@@ -28,9 +28,7 @@ if basePlacementId == "fixed"
     railThetaRad = nan;
 elseif basePlacementId == "ceiling"
     T_world_base = trvec2tform(headOriginM + [0, 0, appState.ceilingHeightM]) * axang2tform([0, 1, 0, pi]);
-    robot = hairsim.motion.attachClipperCollisionToRobot( ...
-        hairsim.motion.applyRobotBaseTransform(adapter.plainRobot, T_world_base), ...
-        adapter.endEffector, adapter.toolMount);
+    robot = hairsim.motion.applyRobotBaseTransform(adapter.plainRobot, T_world_base);
     headCollision = adapter.headCollision;
     qHome = adapter.qHomeCeiling;
     railThetaRad = nan;
@@ -48,7 +46,7 @@ else
 end
 
 homeClear = hairsim.motion.validateClipperRobotCollision(robot, qHome, ...
-    adapter.endEffector, adapter.toolMount, headCollision, 0, true);
+    adapter.endEffector, headCollision, 0, true);
 if ~homeClear
     warning("hairsim:BaseHomeNotClear", ...
         "Home for base placement '%s' is not collision-free; plans will start from it anyway.", basePlacementId);
@@ -57,10 +55,9 @@ end
 appState.modelContext.robot = robot;
 appState.modelContext.headCollision = headCollision;
 appState.modelContext.qHome = qHome;
-% hairsim.planning.transitStrategies.railSlide (the "railslide" preset)
-% requires these two fields on the context it receives; absent for
-% "fixed"/"ceiling" so that preset's own isfield check fails loudly rather
-% than silently reusing a stale rail builder from an earlier switch.
+% the post-processor's rail station search requires these two fields;
+% absent for "fixed"/"ceiling" so a stale rail builder from an earlier
+% switch is never reused.
 if isfield(appState.modelContext, 'railContextBuilder')
     appState.modelContext = rmfield(appState.modelContext, 'railContextBuilder');
 end

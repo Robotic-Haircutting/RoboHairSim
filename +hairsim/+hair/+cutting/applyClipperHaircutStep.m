@@ -1,45 +1,36 @@
 function [haircutState, cutInfo] = applyClipperHaircutStep( ...
-        haircutState, clipperSphereCenterWorldM, toolRadiusM, options)
+        haircutState, T_world_ee, cutModel, options)
 %APPLYCLIPPERHAIRCUTSTEP Shorten hit guide hair and append falling debris.
-
+%   T_world_ee: the end-effector pose of this CUT tick. cutModel is the
+%   clipper's cut model:
+%     "combLift" (hairsim.hair.cutting.createCombLiftCutModel) = comb stands
+%       covered strands up, cut at lengthGoal's target; the same predicate
+%       the planner's coverage uses. PreviousToolTransform (the last CUT
+%       tick's T_world_ee) makes it sweep between ticks.
+%     "guardBlade" (hairsim.hair.cutting.createGuardBladeCutModel) = flat
+%       blade + guard comb (exploratory), ignores any per-strand target.
 arguments
     haircutState (1, 1) struct
-    clipperSphereCenterWorldM (1, 3) double
-    toolRadiusM (1, 1) double {mustBePositive}
-    options.CutRadiusScale (1, 1) double {mustBePositive} = 1.0
+    T_world_ee (4, 4) double
+    cutModel (1, 1) struct
     options.DebrisRandomScale (1, 1) double {mustBeNonnegative} = 0.45
-    % Optional geometric cut model (hairsim.hair.cutting.createGuardBladeCutModel):
-    % [] = the original sphere cut clamped at lengthGoal's per-strand target;
-    % "guardBlade" = flat blade + guard comb, needs ToolTransform (T_world_ee)
-    % and ignores any per-strand target.
-    % "combLift" (hairsim.hair.cutting.createCombLiftCutModel) = comb stands
-    % covered strands up, cut at lengthGoal's target; needs ToolTransform and
-    % optionally PreviousToolTransform (the last CUT tick's T_world_ee) to
-    % sweep between ticks.
-    options.CutModel = []
-    options.ToolTransform = []
     options.PreviousToolTransform = []
 end
-
 previousActiveHairNodeCounts = haircutState.hairState.activeNodeCounts;
-if ~isempty(options.CutModel) && options.CutModel.type == "combLift"
-    if isempty(options.ToolTransform)
-        error("hairsim:CombLiftNeedsToolTransform", ...
-            "The combLift cut model needs the tool pose (ToolTransform).");
-    end
+if cutModel.type == "combLift"
     targetActiveNodeCounts = getTargetActiveNodeCounts(haircutState);
     if isempty(targetActiveNodeCounts)
         error("hairsim:CombLiftNeedsLengthGoal", ...
             "The combLift cut model cuts to lengthGoal.targetActiveNodeCounts; set a length goal first.");
     end
-    T_ee = options.ToolTransform;
+    T_ee = T_world_ee;
     if ~isempty(options.PreviousToolTransform)
-        T_ee = cat(3, options.PreviousToolTransform, options.ToolTransform);
+        T_ee = cat(3, options.PreviousToolTransform, T_world_ee);
     end
-    T_world_tcp = pagemtimes(T_ee, options.CutModel.tool.T_ee_tcp);
+    T_world_tcp = pagemtimes(T_ee, cutModel.tool.T_ee_tcp);
     flowDirs = zeros(0, 3);
-    if isfield(options.CutModel, 'flowDirs')
-        flowDirs = options.CutModel.flowDirs;
+    if isfield(cutModel, 'flowDirs')
+        flowDirs = cutModel.flowDirs;
     end
     [haircutState.hairState.activeNodeCounts, cutInfo] = ...
         hairsim.hair.cutting.applyCombLiftCutToGuideHair( ...
@@ -47,31 +38,18 @@ if ~isempty(options.CutModel) && options.CutModel.type == "combLift"
             haircutState.hairState.hairs.Y, ...
             haircutState.hairState.hairs.Z, ...
             haircutState.hairState.activeNodeCounts, ...
-            targetActiveNodeCounts, T_world_tcp, options.CutModel.tool, ...
+            targetActiveNodeCounts, T_world_tcp, cutModel.tool, ...
             'FlowDirs', flowDirs);
-elseif ~isempty(options.CutModel) && options.CutModel.type == "guardBlade"
-    if isempty(options.ToolTransform)
-        error("hairsim:GuardBladeNeedsToolTransform", ...
-            "The guardBlade cut model needs the tool pose (ToolTransform).");
-    end
+elseif cutModel.type == "guardBlade"
     [haircutState.hairState.activeNodeCounts, cutInfo] = ...
         hairsim.hair.cutting.applyGuardBladeCutToGuideHair( ...
             haircutState.hairState.hairs.X, ...
             haircutState.hairState.hairs.Y, ...
             haircutState.hairState.hairs.Z, ...
             haircutState.hairState.activeNodeCounts, ...
-            options.ToolTransform, options.CutModel);
+            T_world_ee, cutModel);
 else
-    targetActiveNodeCounts = getTargetActiveNodeCounts(haircutState);
-    [haircutState.hairState.activeNodeCounts, cutInfo] = ...
-        hairsim.hair.cutting.applyClipperCutToGuideHair( ...
-            haircutState.hairState.hairs.X, ...
-            haircutState.hairState.hairs.Y, ...
-            haircutState.hairState.hairs.Z, ...
-            haircutState.hairState.activeNodeCounts, ...
-            clipperSphereCenterWorldM, toolRadiusM, ...
-            'CutRadiusScale', options.CutRadiusScale, ...
-            'TargetActiveNodeCounts', targetActiveNodeCounts);
+    error("hairsim:UnknownCutModel", "Unknown cut model type '%s'.", cutModel.type);
 end
 
 if cutInfo.cutCount > 0

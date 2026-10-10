@@ -1,6 +1,5 @@
 function drawRobotClipperScene(ax, robot, qCurrent, headMesh, T_world_ee_actual, ...
-        T_ee_tool, T_ee_tool_center, toolRadiusM, cutFlag, solved, ...
-        toolTipErrorM, options)
+        toolMount, cutFlag, solved, toolTipErrorM, options)
 %DRAWROBOTCLIPPERSCENE Draw the UR5e, head mesh, and mounted clipper.
 %   This function owns only the robot/head/tool visuals. Hair and debris
 %   are a separate, independently updated overlay (see
@@ -13,19 +12,15 @@ arguments
     qCurrent
     headMesh (1, 1) struct
     T_world_ee_actual (4, 4) double
-    T_ee_tool (4, 4) double
-    T_ee_tool_center (4, 4) double
-    toolRadiusM (1, 1) double
+    toolMount (1, 1) struct
     cutFlag (1, 1) logical
     solved (1, 1) logical
     toolTipErrorM (1, 1) double
     options.PoseStatus (1, 1) string = ""
     options.SceneZMaxM (1, 1) double {mustBePositive} = 0.65
-    % Display-only clipper head (hairsim.motion.createClipperDisplayMesh);
-    % [] keeps the original sphere. Cutting/collision use the sphere either way.
+    % Display clipper head (hairsim.motion.createClipperDisplayMesh); [] =
+    % draw the parametric clipper model itself (toolMount.tool)
     options.ToolDisplayMesh = []
-    % With ToolDisplayMesh: also draw the (real) cutting sphere as a ghost.
-    options.ShowCutSphere (1, 1) logical = false
 end
 
 hasExistingView = ~isempty(get(ax, 'Children'));
@@ -34,8 +29,6 @@ if hasExistingView
 end
 
 delete(findobj(ax, 'Tag', 'HairSimHeadMesh'));
-delete(findobj(ax, 'Tag', 'HairSimClipperSphere'));
-delete(findobj(ax, 'Tag', 'HairSimClipperLine'));
 delete(findobj(ax, 'Tag', 'HairSimClipperHead'));
 if ~isempty(robot)
     hairsim.motion.showClipperRobot(robot, qCurrent, ax);
@@ -53,21 +46,15 @@ patch(ax, ...
     'SpecularExponent', 8, ...
     'Tag', 'HairSimHeadMesh');
 
-clipperSphereCenterWorldM = hairsim.getMountedClipperPoint(T_world_ee_actual, ...
-    T_ee_tool_center);
-clipperToolTipWorldM = hairsim.getMountedClipperPoint(T_world_ee_actual, T_ee_tool);
 if cutFlag
     clipperColor = [0.1, 0.65, 0.25];
 else
     clipperColor = [0.85, 0.08, 0.08];
 end
 if isempty(options.ToolDisplayMesh)
-    drawClipperSphere(ax, clipperSphereCenterWorldM, clipperToolTipWorldM, toolRadiusM, clipperColor, 0.75);
+    drawClipperModel(ax, toolMount.tool, T_world_ee_actual, clipperColor);
 else
     drawClipperHead(ax, options.ToolDisplayMesh, T_world_ee_actual, clipperColor);
-    if options.ShowCutSphere
-        drawClipperSphere(ax, clipperSphereCenterWorldM, clipperToolTipWorldM, toolRadiusM, clipperColor, 0.2);
-    end
 end
 
 axis(ax, 'equal');
@@ -99,27 +86,19 @@ end
 
 % =========================================================================
 
-function drawClipperSphere(ax, clipperSphereCenterWorldM, clipperToolTipWorldM, toolRadiusM, clipperColor, faceAlpha)
-[sx, sy, sz] = sphere(12);
-surf(ax, ...
-    sx * toolRadiusM + clipperSphereCenterWorldM(1), ...
-    sy * toolRadiusM + clipperSphereCenterWorldM(2), ...
-    sz * toolRadiusM + clipperSphereCenterWorldM(3), ...
-    'FaceColor', clipperColor, ...
-    'EdgeColor', 'none', ...
-    'FaceAlpha', faceAlpha, ...
-    'AmbientStrength', 0.35, ...
-    'DiffuseStrength', 0.70, ...
-    'SpecularStrength', 0.12, ...
-    'SpecularExponent', 10, ...
-    'Tag', 'HairSimClipperSphere');
-plot3(ax, ...
-    [clipperSphereCenterWorldM(1), clipperToolTipWorldM(1)], ...
-    [clipperSphereCenterWorldM(2), clipperToolTipWorldM(2)], ...
-    [clipperSphereCenterWorldM(3), clipperToolTipWorldM(3)], ...
-    'Color', [0.15, 0.15, 0.15], ...
-    'LineWidth', 2.0, ...
-    'Tag', 'HairSimClipperLine');
+function drawClipperModel(ax, tool, T_world_ee, clipperColor)
+%DRAWCLIPPERMODEL The parametric clipper (contact slab + body) as convex
+%   hulls of its sample points, the contact slab colour-coded by cutFlag.
+T_world_tcp = T_world_ee * tool.T_ee_tcp;
+R = T_world_tcp(1:3, 1:3);
+p = T_world_tcp(1:3, 4)';
+pieces = {tool.contactPointsTcpM, clipperColor, 0.75; tool.bodyPointsTcpM, [0.32, 0.33, 0.36], 1.0};
+for k = 1:size(pieces, 1)
+    pts = pieces{k, 1} * R' + p;
+    faces = convhulln(pieces{k, 1});
+    patch(ax, 'Faces', faces, 'Vertices', pts, 'FaceColor', pieces{k, 2}, 'EdgeColor', 'none', ...
+        'FaceAlpha', pieces{k, 3}, 'FaceLighting', 'gouraud', 'Tag', 'HairSimClipperHead');
+end
 end
 
 function drawClipperHead(ax, displayMesh, T_world_ee, clipperColor)

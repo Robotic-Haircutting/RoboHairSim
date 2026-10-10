@@ -3,7 +3,7 @@ function clearance = evaluateClipperClearance(T_world_tcp, tool, headQuery, opti
 %   T_world_tcp: (4,4) or (4,4,N). For each pose, the contact slab's and the
 %   body's sample points (hairsim.tool.createClipperTool) are placed in the
 %   world and their exact signed distance to the head mesh is taken
-%   (hairsim.tool.signedDistanceToHead). Unlike the old sphere test this
+%   (hairsim.tool.signedDistanceToHead). This
 %   depends on the tool's ORIENTATION: rolling or pitching the blade moves
 %   its corners toward or away from the scalp.
 %

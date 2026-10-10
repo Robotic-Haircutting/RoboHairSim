@@ -2,24 +2,22 @@ function displayMesh = createClipperDisplayMesh(stlPath, toolMount, options)
 %CREATECLIPPERDISPLAYMESH Display-only clipper head mesh in the EE frame.
 %   Crops the blade-head wedge (the "triangular cone" at the blade end)
 %   out of a full hair-clipper STL, decimates it, and places it in the
-%   end-effector frame so it can be drawn in place of the clipper sphere.
+%   end-effector frame.
 %
-%   DISPLAY ONLY: the cutting model (hairsim.hair.updateHairLayerForClipper)
-%   and the collision model (hairsim.motion.attachClipperCollisionToRobot)
-%   both still use toolMount's sphere; nothing here feeds planning, IK,
-%   cutting or collision, so all planning results are unchanged.
+%   DISPLAY ONLY: cutting, clearance and collision use the parametric
+%   clipper model (toolMount.tool, hairsim.tool.createClipperTool); nothing
+%   here feeds planning, IK, cutting or collision.
 %
-%   Frame convention (Tool Pose V1, hairsim.analysis.planToolPosesForLane):
+%   Frame convention:
 %   EE x = travel direction, EE z = into the scalp (-n), EE y = transverse.
 %   The STL is expected with its long axis along +z (blade at max z),
 %   blade width along x and wedge thickness along y; it is mapped
 %       STL x -> EE y (blade edge perpendicular to travel),
 %       STL y -> EE -x, STL z -> EE z (blade toward the scalp).
-%   Scale: the blade-teeth width is set to the cutting sphere's diameter
-%   (2 * toolRadiusM), so the drawn blade is exactly as wide as what
-%   actually cuts. The teeth top-centre is placed at the sphere's far
-%   point (toolTipOffset + toolRadiusM along EE z), i.e. where the sphere
-%   surface faces the scalp at ~2 mm planned clearance. The gap between
+%   Scale: the blade-teeth width is set to the clipper model's blade width
+%   (2 * tool.bladeHalfWidthM), and the teeth top-centre is placed at the
+%   model's TCP (tool.tcpOffsetM along EE z), so the drawn blade is the
+%   blade the comb-lift cut model uses. The gap between
 %   the EE flange and the wedge base is filled by a plain cylindrical
 %   adapter (adapterFaces/adapterVerticesEe).
 %
@@ -50,7 +48,7 @@ if isempty(fileInfo)
 end
 key = sprintf('%s|%s|%g|%g|%g|%d|%g|%g|%g', stlPath, fileInfo.date, options.CropZFraction, ...
     options.TeethSlabFraction, options.TargetFaceCount, options.FlipTeeth, options.AdapterRadiusM, ...
-    toolMount.toolRadiusM, toolMount.T_ee_tool_center(3, 4));
+    toolMount.tool.bladeHalfWidthM, toolMount.tool.tcpOffsetM);
 if isKey(cache, key)
     displayMesh = cache(key);
     return;
@@ -87,13 +85,13 @@ faces = reduced.faces;
 points = reduced.vertices;
 
 % ---- STL frame -> EE frame
-bladeWidthM = 2 * toolMount.toolRadiusM;
+bladeWidthM = 2 * toolMount.tool.bladeHalfWidthM;
 scale = bladeWidthM / teethWidthStl;
 R_ee_stl = [0, -1, 0; 1, 0, 0; 0, 0, 1];
 if options.FlipTeeth
     R_ee_stl = diag([-1, -1, 1]) * R_ee_stl;
 end
-tipZEeM = toolMount.T_ee_tool_center(3, 4) + toolMount.toolRadiusM;
+tipZEeM = toolMount.tool.tcpOffsetM;
 toEe = @(p) (scale * (p - anchorStl)) * R_ee_stl' + [0, 0, tipZEeM];
 verticesEe = toEe(points);
 

@@ -391,7 +391,11 @@ end
 end
 
 function tf = isCamClipperPlan(regionPlan)
-tf = ~isempty(regionPlan) && isfield(regionPlan, 'plannerName') && startsWith(regionPlan.plannerName, "camClipper");
+% the camClipper family = the planners hairsim.planning.camClipperTool knows
+tf = false;
+if ~isempty(regionPlan) && isfield(regionPlan, 'plannerName')
+    [~, tf] = hairsim.planning.camClipperTool(regionPlan.plannerName);
+end
 end
 
 function hairAppState = applyCutModelForPlan(hairAppState, regionPlan, headMeshWorld)

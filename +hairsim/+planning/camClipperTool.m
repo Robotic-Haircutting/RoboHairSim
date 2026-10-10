@@ -4,8 +4,6 @@ function [tool, isCamClipper] = camClipperTool(plannerName)
 %   model) when executed or replayed. One place, so planning, GUI
 %   execution, full demo and bundle replay cannot disagree.
 %
-%     "camClipper"            hairsim.tool.createClipperTool() (feed
-%                             direction ignored; the 2026-10-03 results)
 %     "camClipperAgainstFlow" same tool, comb lifts only hair it is pushed
 %                             against: feed within 45 deg of -hair flow
 %     "geometricRaster"       the hair-unaware baseline: plans without the
@@ -21,8 +19,6 @@ end
 
 isCamClipper = true;
 switch plannerName
-    case "camClipper"
-        tool = hairsim.tool.createClipperTool();
     case {"camClipperAgainstFlow", "geometricRaster"}
         tool = hairsim.tool.createClipperTool('MaxFeedAngleRad', deg2rad(45));
     otherwise

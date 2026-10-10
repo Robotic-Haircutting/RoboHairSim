@@ -1,6 +1,6 @@
 function regionPlan = camClipperPlanner(haircutState, regionName, targetLengthM, context, options)
 %CAMCLIPPERPLANNER The camClipper region planner (registered as
-%   "camClipper" by hairsim.planning.registerBuiltinPresets): clipper tool
+%   "camClipperAgainstFlow" by hairsim.planning.registerBuiltinPresets): clipper tool
 %   model, CAM toolpaths generated from scratch (hairsim.cam), robot
 %   post-processing with a per-segment rail-station search (hairsim.post),
 %   and the ideal-vs-robot evaluation (hairsim.eval). Uses no frozen lanes.
@@ -17,8 +17,7 @@ function regionPlan = camClipperPlanner(haircutState, regionName, targetLengthM,
 %   options.LaneIndices / PlanTransits are accepted for contract
 %   compatibility and ignored (all segments are planned, transits always).
 %   options.PlannerName selects the preset's tool (hairsim.planning.camClipperTool):
-%   "camClipper" (feed direction ignored) or "camClipperAgainstFlow"
-%   (registered separately; comb lifts only hair pushed against its flow).
+%   "camClipperAgainstFlow" (comb lifts only hair pushed against its flow).
 %   "geometricRaster" is the hair-unaware baseline: the same pipeline with
 %   a geometric raster (hairsim.cam.planRegionToolpaths 'Raster',
 %   "geometric"), evaluated with the camClipperAgainstFlow tool.
@@ -31,7 +30,7 @@ arguments
     options.OnProgress = []
     options.LaneIndices (1, :) double = []
     options.PlanTransits (1, 1) logical = true
-    options.PlannerName (1, 1) string = "camClipper"
+    options.PlannerName (1, 1) string = "camClipperAgainstFlow"
 end
 
 if ~isfield(context, 'numJoints') || isempty(context.numJoints)

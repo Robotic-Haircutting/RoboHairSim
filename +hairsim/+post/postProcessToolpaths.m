@@ -42,7 +42,7 @@ arguments
     options.MinPieceCutSamples (1, 1) double {mustBePositive, mustBeInteger} = 2
     options.DeadEndPatience (1, 1) double {mustBePositive, mustBeInteger} = 3
     options.InsertSearchDepth (1, 1) double {mustBeNonnegative, mustBeInteger} = 6
-    options.PlannerName (1, 1) string = "camClipper"
+    options.PlannerName (1, 1) string = "camClipperAgainstFlow"
     options.OnProgress = []
 end
 

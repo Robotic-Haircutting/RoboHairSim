@@ -1,8 +1,7 @@
 function plannerFn = getRegionPlanner(name)
 %GETREGIONPLANNER Look up a registered region planner by name.
-%   Lazily registers the built-in planners (camClipper,
-%   camClipperAgainstFlow; geometricRaster in the development tree) on
-%   first use.
+%   Lazily registers the built-in planners (camClipperAgainstFlow;
+%   geometricRaster in the development tree) on first use.
 
 arguments
     name (1, 1) string

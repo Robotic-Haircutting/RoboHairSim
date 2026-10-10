@@ -4,8 +4,8 @@ function regionPlan = planRegion(haircutState, regionName, targetLengthM, contex
 %   targetLengthM, context, "camClipperAgainstFlow")
 %
 %   plannerName is looked up via hairsim.planning.getRegionPlanner --
-%   "camClipper" and "camClipperAgainstFlow" are built in (the development
-%   tree adds "geometricRaster"; see hairsim.planning.registerBuiltinPresets); register your own with
+%   "camClipperAgainstFlow" is built in (the development tree adds
+%   "geometricRaster"; see hairsim.planning.registerBuiltinPresets); register your own with
 %   hairsim.planning.registerRegionPlanner and pass its name here.
 %
 %   options passes through to the planner (OnProgress, PlanTransits;

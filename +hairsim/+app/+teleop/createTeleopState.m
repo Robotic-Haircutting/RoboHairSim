@@ -29,6 +29,8 @@ arguments
     options.MaxRollRad (1, 1) double {mustBeNonnegative} = deg2rad(30)
     options.MaxTranslationPerTickM (1, 1) double {mustBePositive} = 0.010
     options.MaxRotationPerTickRad (1, 1) double {mustBePositive} = deg2rad(10)
+    options.RailStepRad (1, 1) double {mustBePositive} = deg2rad(5)
+    options.RailLimitsRad (1, 2) double = deg2rad([120, 240])   % the ring Auto plans on
 end
 
 teleopState = struct();
@@ -43,6 +45,8 @@ teleopState.rollStepRad = options.RollStepRad;
 teleopState.maxRollRad = options.MaxRollRad;
 teleopState.maxTranslationPerTickM = options.MaxTranslationPerTickM;
 teleopState.maxRotationPerTickRad = options.MaxRotationPerTickRad;
+teleopState.railStepRad = options.RailStepRad;
+teleopState.railLimitsRad = options.RailLimitsRad;
 % IK / safety parameters of the camClipper post-processor
 teleopState.params = struct('ikWeights', [0.01, 0.01, 0.01, 5, 5, 5], 'maxToolTipErrorM', 0.002, ...
     'collisionMarginM', 0.001, 'maxJointStepRad', deg2rad(60));

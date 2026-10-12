@@ -20,6 +20,13 @@ function [teleopState, poseCommand] = stepTeleop(teleopState, robotAppState, cut
 %   would leave it is refused (OUTSIDE_REGION) -- unless the foot is already
 %   outside and the move brings it closer, so the clipper can be driven in.
 %
+%   Rail slide ([ / ], rail setups only): the base moves RailStepRad along
+%   the ring, within RailLimitsRad, and the arm re-solves so the clipper
+%   stays where it is (same IK + safety gates at the new station). The
+%   PoseCommand carries railThetaRad; hairsim.app.robot.applyPoseCommand
+%   moves the robot model there. A slide is a tick of its own: other keys
+%   queued with it run on the next tick.
+%
 %   Cutting: cutFlag only on an accepted tick that PUSHES FORWARD (W/Up)
 %   with Space held and cutEnabled -- the comb lifts hair it is pushed
 %   into; pulling back, sliding or turning never cuts. Whether the strand
@@ -38,7 +45,7 @@ if any(~isfinite(teleopState.surface.footWorldM))
 end
 input = teleopState.pending;
 hasInput = input.feed ~= 0 || input.side ~= 0 || input.yaw ~= 0 || input.standoff ~= 0 || ...
-    input.roll ~= 0 || input.snapToFlow;
+    input.roll ~= 0 || input.rail ~= 0 || input.snapToFlow;
 if ~hasInput && ~teleopState.settling
     return;
 end
@@ -48,6 +55,14 @@ query = teleopState.headQuery;
 mc = robotAppState.modelContext;
 qCurrent = robotAppState.state.qCurrent(:);
 T_current = getTransform(mc.robot, qCurrent, char(mc.endEffector)) * tool.T_ee_tcp;
+
+if input.rail ~= 0
+    rest = input;
+    rest.rail = 0;
+    teleopState.pending = rest;
+    [teleopState, poseCommand] = slideRail(teleopState, robotAppState, input.rail, T_current);
+    return;
+end
 
 % ---- 1. new surface state
 s = teleopState.surface;
@@ -130,20 +145,63 @@ poseCommand = struct('qCandidate', q(:), 'solved', true, 'toolTipWorldM', tip, .
 
     function sctx = stationContext()
         % the camClipper post-processor's robot context at the current base,
-        % rebuilt only when the robot model changes (base switch)
+        % rebuilt only when the robot model changes (base switch, rail slide)
         if isempty(teleopState.station.robot) || teleopState.station.robot ~= mc.robot
-            baseCtx = struct('robot', mc.robot, 'endEffector', mc.endEffector, 'toolMount', mc.toolMount, ...
-                'headCollision', {mc.headCollision}, 'qHome', mc.qHome(:), ...
-                'headCenterWorldM', teleopState.headCenterWorldM, ...
-                'redundantJointIndices', 1:numel(qCurrent), 'numJoints', numel(qCurrent));
             teleopState.station = struct('robot', mc.robot, ...
-                'sctx', hairsim.post.createStationContext(baseCtx, NaN, tool));
+                'sctx', hairsim.post.createStationContext(baseContext(teleopState, mc), NaN, tool));
         end
         sctx = teleopState.station.sctx;
     end
 end
 
 % =========================================================================
+
+function [teleopState, poseCommand] = slideRail(teleopState, robotAppState, steps, T_current)
+% move the base along the rail, the clipper held at T_current
+mc = robotAppState.modelContext;
+tool = teleopState.tool;
+qCurrent = robotAppState.state.qCurrent(:);
+if ~isfield(mc, 'railContextBuilder')
+    [teleopState, poseCommand] = refuse(teleopState, robotAppState, "NO_RAIL");
+    return;
+end
+theta = robotAppState.state.railThetaRad;
+newTheta = min(max(theta + steps * teleopState.railStepRad, teleopState.railLimitsRad(1)), ...
+    teleopState.railLimitsRad(2));
+if abs(newTheta - theta) < 1e-9
+    [teleopState, poseCommand] = refuse(teleopState, robotAppState, "RAIL_LIMIT");
+    return;
+end
+baseCtx = baseContext(teleopState, mc);
+baseCtx.railContextBuilder = mc.railContextBuilder;
+sctx = hairsim.post.createStationContext(baseCtx, newTheta, tool);
+[q, T_actual, rejected] = hairsim.post.solveClipperPose(sctx, teleopState.params, qCurrent, T_current, ...
+    tool, teleopState.headQuery, "fast", true);
+if isempty(q)
+    [q, T_actual, rejected] = hairsim.post.solveClipperPose(sctx, teleopState.params, qCurrent, T_current, ...
+        tool, teleopState.headQuery, "extended", true);
+end
+if isempty(q)
+    [teleopState, poseCommand] = refuse(teleopState, robotAppState, "RAIL_" + upper(dominantReason(rejected)));
+    return;
+end
+teleopState.settling = false;
+status = sprintf("ACCEPTED:RAIL %.0f deg", rad2deg(newTheta));
+teleopState.hud = hud(teleopState, status, T_actual, teleopState.surface);
+tip = hairsim.getMountedClipperPoint(T_actual / tool.T_ee_tcp, mc.toolMount.T_ee_tool);
+poseCommand = struct('qCandidate', q(:), 'solved', true, 'toolTipWorldM', tip, ...
+    'statusLabel', status, 'toolTipErrorM', norm(T_actual(1:3, 4) - T_current(1:3, 4)), ...
+    'targetTipWorldM', tip, 'desiredTipWorldM', tip, 'safeTipWorldM', tip, ...
+    'governorActive', false, 'cutFlag', false, 'railThetaRad', newTheta);
+end
+
+function baseCtx = baseContext(teleopState, mc)
+n = numel(mc.qHome);
+baseCtx = struct('robot', mc.robot, 'endEffector', mc.endEffector, 'toolMount', mc.toolMount, ...
+    'headCollision', {mc.headCollision}, 'qHome', mc.qHome(:), ...
+    'headCenterWorldM', teleopState.headCenterWorldM, ...
+    'redundantJointIndices', 1:n, 'numJoints', n);
+end
 
 function x = tangent(v, n)
 x = v - dot(v, n) * n;

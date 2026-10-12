@@ -228,10 +228,14 @@ end
                 region = sprintf("%s (outside, %.0f mm)", teleopState.regionName, h.regionDistanceMm);
             end
         end
+        rail = "-";
+        if isfinite(robotAppState.state.railThetaRad)
+            rail = sprintf("%.0f deg", rad2deg(robotAppState.state.railThetaRad));
+        end
         set(ui.teleop.poseText, 'String', sprintf([ ...
-            'Pose      %s\n', 'Region    %s\n', 'Height    %.1f mm (touching: %s)\n', ...
+            'Pose      %s\n', 'Region    %s\n', 'Rail      %s\n', 'Height    %.1f mm (touching: %s)\n', ...
             'Feed      %.0f deg off against-flow\n', 'Roll      %.0f deg\n', 'Clearance %.1f mm'], ...
-            h.status, region, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
+            h.status, region, rail, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
     end
 
     function setStatus(text)

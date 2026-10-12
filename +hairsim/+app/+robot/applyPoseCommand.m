@@ -13,12 +13,21 @@ function appState = applyPoseCommand(appState, poseCommand)
 %   immediately on acceptance, no actuation gap); a future hardware backend
 %   would instead leave qCurrent alone here and update it only once a real
 %   controller reports arrival, without changing this function's contract.
+%
+%   Optional poseCommand.railThetaRad: an accepted command that also moves
+%   the base along the rail (Teleop's rail slide). The robot model is put at
+%   that station first (hairsim.app.robot.applyRailStationForReplay); absent
+%   or equal to the current station = no change.
 
 arguments
     appState (1, 1) struct
     poseCommand (1, 1) struct
 end
 
+if poseCommand.solved && isfield(poseCommand, 'railThetaRad') && isfinite(poseCommand.railThetaRad) && ...
+        ~(abs(poseCommand.railThetaRad - appState.state.railThetaRad) <= 1e-12)
+    appState = hairsim.app.robot.applyRailStationForReplay(appState, poseCommand.railThetaRad);
+end
 appState.state.qCommanded = poseCommand.qCandidate(:);
 if poseCommand.solved
     appState.state.qCurrent = poseCommand.qCandidate(:);

@@ -1,5 +1,5 @@
 function result = testTeleopRail(options)
-%TESTTELEOPRAIL Headless Teleop rail slide ([ / ]) on the Rail setup
+%TESTTELEOPRAIL Headless Teleop rail slide (C / V) on the Rail setup
 %   (rail180). From the clipper-safe Home, lower onto the scalp, then slide
 %   the base both ways and keep driving. Checks:
 %     - every accepted slide moves the station by exactly RailStepRad and
@@ -13,7 +13,7 @@ function result = testTeleopRail(options)
 %       (RAIL_LIMIT, tested with the end moved one step ahead of the base)
 %       and the station stays inside the limits;
 %     - after slides the clipper still drives on the scalp (W accepted);
-%     - on the fixed base [ ] is refused (NO_RAIL) and nothing moves.
+%     - on the fixed base C / V are refused (NO_RAIL) and nothing moves.
 
 arguments
     options.AdapterName (1, 1) string = "ur5e"
@@ -37,16 +37,16 @@ floorZ = scene.headScene.headMeshWorld.bboxMin(3) - 0.1;
 ticks = struct('key', {}, 'solved', {}, 'status', {}, 'thetaBefore', {}, 'thetaAfter', {}, ...
     'tcpBefore', {}, 'tcpAfter', {}, 'reportedTcp', {}, 'clearanceM', {});
 press(repmat("f", 1, 8));
-press([repmat("rightbracket", 1, 4), repmat("leftbracket", 1, 8)]);
+press([repmat("v", 1, 4), repmat("c", 1, 8)]);
 press(repmat("w", 1, 6));
-press(repmat("rightbracket", 1, 30));          % on toward the end of the ring (an arm link may meet the head first)
+press(repmat("v", 1, 30));          % on toward the end of the ring (an arm link may meet the head first)
 % the end of the ring: back off two (reachable) steps, put the end one step
 % ahead, press past it
-press(repmat("leftbracket", 1, 2));
+press(repmat("c", 1, 2));
 teleopState.railLimitsRad(2) = robotAppState.state.railThetaRad + teleopState.railStepRad;
-press(repmat("rightbracket", 1, 3));
+press(repmat("v", 1, 3));
 
-slides = ticks(ismember([ticks.key], ["leftbracket", "rightbracket"]) & [ticks.solved]);
+slides = ticks(ismember([ticks.key], ["c", "v"]) & [ticks.solved]);
 stepDeg = rad2deg(abs([slides.thetaAfter] - [slides.thetaBefore]));
 held = vecnorm(cell2mat({slides.tcpAfter}') - cell2mat({slides.tcpBefore}'), 2, 2);
 modelErr = vecnorm(cell2mat({slides.tcpAfter}') - cell2mat({slides.reportedTcp}'), 2, 2);
@@ -75,9 +75,9 @@ robotAppState.state.qCurrent = qHome;
 robotAppState.state.qCommanded = qHome;
 teleopState = hairsim.app.teleop.syncToRobot(teleopState, robotAppState);
 ticks = ticks([]);
-press(["rightbracket", "leftbracket"]);
+press(["v", "c"]);
 assert(all([ticks.status] == "REJECTED:NO_RAIL") && isequal(robotAppState.state.qCurrent, qHome), ...
-    "[ ] did something on the fixed base");
+    "C / V did something on the fixed base");
 fprintf('PASS: Teleop rail slide (%s)\n', options.AdapterName);
 result = struct('slides', numel(slides), 'finalThetaDeg', rad2deg(robotAppState.state.railThetaRad));
 

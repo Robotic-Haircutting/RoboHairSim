@@ -20,7 +20,7 @@ function [teleopState, poseCommand] = stepTeleop(teleopState, robotAppState, cut
 %   would leave it is refused (OUTSIDE_REGION) -- unless the foot is already
 %   outside and the move brings it closer, so the clipper can be driven in.
 %
-%   Rail slide ([ / ], rail setups only): the base moves RailStepRad along
+%   Rail slide (C / V, rail setups only): the base moves RailStepRad along
 %   the ring, within RailLimitsRad, and the arm re-solves so the clipper
 %   stays where it is (same IK + safety gates at the new station). The
 %   PoseCommand carries railThetaRad; hairsim.app.robot.applyPoseCommand

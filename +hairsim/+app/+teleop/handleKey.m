@@ -8,7 +8,7 @@ function teleopState = handleKey(teleopState, keyName, isPressed)
 %     G           turn the feed against the hair flow under the clipper
 %     R / F       lift / lower the clipper (lowest = touching the scalp)
 %     Z / X       roll the blade (edge cut), within +-MaxRollRad
-%     [ / ]       slide the base along the rail (rail setups only)
+%     C / V       slide the base along the rail (rail setups only)
 %     Space       hold to cut
 
 arguments
@@ -49,9 +49,9 @@ switch key
         p.roll = p.roll - 1;
     case 'x'
         p.roll = p.roll + 1;
-    case 'leftbracket'
+    case 'c'
         p.rail = p.rail - 1;
-    case 'rightbracket'
+    case 'v'
         p.rail = p.rail + 1;
 end
 teleopState.pending = p;

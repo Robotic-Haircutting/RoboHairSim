@@ -7,5 +7,9 @@ arguments
     viewState (1, 1) struct
     haircutState (1, 1) struct
 end
-hairsim.hair.render.updateHaircutLayerOverlay(viewState.ax, haircutState);
+cutHairColor = [];
+if isfield(viewState, 'cutHairColor')
+    cutHairColor = viewState.cutHairColor;
+end
+hairsim.hair.render.updateHaircutLayerOverlay(viewState.ax, haircutState, 'CutHairColor', cutHairColor);
 end

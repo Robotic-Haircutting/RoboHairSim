@@ -58,7 +58,7 @@ fig = figure('Name', 'HairSimApp: Teleop', 'NumberTitle', 'off', 'Color', 'w', .
     'WindowKeyPressFcn', @onKeyDown, 'WindowKeyReleaseFcn', @onKeyUp);
 ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0.06, 0.08, 0.70, 0.82]);
 hairsim.hideAxesToolbar(ax);
-viewState = hairsim.app.view.createViewState(ax);
+viewState = hairsim.app.view.createViewState(ax, 'CutHairColor', [0.10, 0.75, 0.20]);   % cut strands in green
 
 ui = hairsim.app.view.createSessionControls(fig, ...
     struct('RobotSetupChanged', @onRobotSetupChanged, 'ToggleRecording', @onToggleRecording), ...

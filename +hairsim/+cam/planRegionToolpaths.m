@@ -19,6 +19,9 @@ function toolpathPlan = planRegionToolpaths(haircutState, regionName, headMeshWo
 %   the region's geometric principal axis, zigzag feed, no flow split, no
 %   rest machining (which picks feeds from the flow); everything else
 %   (segments, tool, contact lift, coverage rule) unchanged.
+%   options.PassDirection ("flow" | "geometric") and options.Feed
+%   ("againstFlow" | "zigzag") set the main raster's pass direction and feed
+%   one at a time (component ablation); "" = what options.Raster implies.
 
 arguments
     haircutState (1, 1) struct
@@ -34,6 +37,8 @@ arguments
     options.SegmentLengthM (1, 1) double {mustBePositive} = 0.04
     options.FlowSplitMinResultant (1, 1) double = 0.5
     options.Raster (1, 1) string {mustBeMember(options.Raster, ["flow", "geometric"])} = "flow"
+    options.PassDirection (1, 1) string {mustBeMember(options.PassDirection, ["", "flow", "geometric"])} = ""
+    options.Feed (1, 1) string {mustBeMember(options.Feed, ["", "againstFlow", "zigzag"])} = ""
     options.OnProgress = []
 end
 
@@ -42,6 +47,12 @@ if options.Raster == "geometric"
     options.FlowSplitMinResultant = 0;
     options.RestMachining = false;
     rasterArgs = {'Direction', "geometric", 'Feed', "zigzag"};
+end
+if strlength(options.PassDirection) > 0
+    rasterArgs = [rasterArgs, {'Direction', options.PassDirection}];
+end
+if strlength(options.Feed) > 0
+    rasterArgs = [rasterArgs, {'Feed', options.Feed}];
 end
 
 timer = tic;

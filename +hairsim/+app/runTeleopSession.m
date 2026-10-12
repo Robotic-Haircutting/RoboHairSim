@@ -12,8 +12,14 @@ function runTeleopSession(options)
 %   hairsim.app.applyPoseTick. Cutting does not need recording; Record
 %   only writes the session to disk.
 %
+%   Region: confine the session to one scalp region ("" = whole head). The
+%   region is highlighted on the scalp, the clipper may not be driven out
+%   of it (hairsim.app.teleop.setRegion) and only its strands are cut
+%   (hairsim.app.hair.installClipperCut 'Region'). Also a popup in the
+%   panel.
+%
 %   Keys are read from the figure, so click the 3D view first; after a
-%   Robot Setup change the popup drops keyboard focus by itself.
+%   Robot Setup or Region change the popup drops keyboard focus by itself.
 
 arguments
     options.AdapterName (1, 1) string = "ur5e"
@@ -21,6 +27,7 @@ arguments
     options.PlanningDataDir (1, 1) string = ""
     options.TargetLengthM (1, 1) double {mustBeNonnegative} = 0.005
     options.PlannerName (1, 1) string = "camClipperAgainstFlow"
+    options.RegionName (1, 1) string = ""
 end
 
 sceneArgs = {};
@@ -38,6 +45,7 @@ recordingState = hairsim.app.recording.createRecordingState( ...
     scene.rootDir, numel(robotAppState.state.qCurrent), robotAppState.modelContext.toolMount);
 teleopState = hairsim.app.teleop.createTeleopState(scene, 'PlannerName', options.PlannerName);
 targetLengthM = options.TargetLengthM;
+regionName = options.RegionName;
 installCut();
 parkCache = [];
 headRadiusApproxM = 0.5 * max(scene.headScene.headMeshWorld.bboxSize);
@@ -58,14 +66,16 @@ ui = hairsim.app.view.createSessionControls(fig, ...
         'HairModelingConfig', hairsim.hair.createControlConfigFromLayer(hairAppState.hairLayer), ...
         'HairModelingCallbacks', hairsim.app.hair.createModelingCallbacks(@onHairChanged)));
 ui.teleop = hairsim.app.view.createTeleopPanel(ui.centerPanel, ...
-    struct('Home', @onHome, 'TargetLengthChanged', @onTargetLengthChanged), ...
-    struct('TargetHairLengthM', targetLengthM));
+    struct('Home', @onHome, 'TargetLengthChanged', @onTargetLengthChanged, 'RegionChanged', @onRegionChanged), ...
+    struct('TargetHairLengthM', targetLengthM, 'Region', regionName, ...
+        'RegionOptions', unique(hairsim.hair.getStrandRegions(hairAppState.hairLayer.haircutState))'));
 
 parkRobotClipperSafe();   % the adapter Home leaves the real clipper inside the head
 teleopState = hairsim.app.teleop.syncToRobot(teleopState, robotAppState);
 refreshControls();
 updatePoseText();
 hairsim.app.view.renderSessionScene(viewState, robotAppState, hairAppState, scene);
+hairsim.app.view.drawTeleopRegion(ax, scene.headScene.headMeshWorld, teleopState);
 
 while ishandle(fig) && isRunning
     drawnow limitrate;
@@ -118,7 +128,17 @@ end
     end
 
 % =====================================================================
-% Target length / cut model
+% Region / target length / cut model
+
+    function onRegionChanged(src, ~)
+        regionName = ui.teleop.regionOptions(src.Value);
+        installCut();
+        hairsim.app.view.drawTeleopRegion(ax, scene.headScene.headMeshWorld, teleopState);
+        updatePoseText();
+        set(src, 'Enable', 'off');   % drop keyboard focus, as after a Robot Setup change
+        drawnow;
+        refreshControls();
+    end
 
     function onTargetLengthChanged(src, ~)
         value = str2double(src.String);
@@ -131,8 +151,9 @@ end
 
     function installCut()
         [hairAppState, flowDirs] = hairsim.app.hair.installClipperCut(hairAppState, ...
-            scene.headScene.headMeshWorld, options.PlannerName, targetLengthM);
+            scene.headScene.headMeshWorld, options.PlannerName, targetLengthM, 'Region', regionName);
         teleopState = hairsim.app.teleop.setHair(teleopState, hairAppState.hairLayer.haircutState, flowDirs);
+        teleopState = hairsim.app.teleop.setRegion(teleopState, regionName);
     end
 
 % =====================================================================
@@ -187,8 +208,9 @@ end
     function onHairChanged(kind, value)
         [hairAppState, needsRedraw] = hairsim.app.hair.applyModelingChange(hairAppState, kind, value);
         if needsRedraw
-            installCut();   % rebuilt strands: new goal, new flow
+            installCut();   % rebuilt strands: new goal, new flow, new region roots
             hairsim.app.view.renderSessionScene(viewState, robotAppState, hairAppState, scene);
+            hairsim.app.view.drawTeleopRegion(ax, scene.headScene.headMeshWorld, teleopState);
         end
         idleHairTicks = hairSettleTicks();
     end
@@ -199,10 +221,17 @@ end
         if h.inContact
             contact = "yes";
         end
+        region = "whole head";
+        if strlength(teleopState.regionName) > 0
+            region = teleopState.regionName + " (inside)";
+            if ~h.inRegion
+                region = sprintf("%s (outside, %.0f mm)", teleopState.regionName, h.regionDistanceMm);
+            end
+        end
         set(ui.teleop.poseText, 'String', sprintf([ ...
-            'Pose      %s\n', 'Height    %.1f mm (touching: %s)\n', ...
+            'Pose      %s\n', 'Region    %s\n', 'Height    %.1f mm (touching: %s)\n', ...
             'Feed      %.0f deg off against-flow\n', 'Roll      %.0f deg\n', 'Clearance %.1f mm'], ...
-            h.status, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
+            h.status, region, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
     end
 
     function setStatus(text)
@@ -212,7 +241,7 @@ end
     end
 
     function refreshControls()
-        set([ui.robotSetupPopup, ui.teleop.homeButton, ui.recordButton], 'Enable', 'on');
+        set([ui.robotSetupPopup, ui.teleop.regionPopup, ui.teleop.homeButton, ui.recordButton], 'Enable', 'on');
         if recordingState.isActive
             set(ui.recordButton, 'String', 'Stop Recording');
             setStatus("Status: teleop (recording)");

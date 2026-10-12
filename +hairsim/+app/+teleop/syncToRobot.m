@@ -29,4 +29,5 @@ teleopState.spaceHeld = false;
 teleopState.settling = false;
 teleopState.hud.status = "SYNCED";
 teleopState.hud.standoffMm = 1000 * d;
+teleopState = hairsim.app.teleop.setRegion(teleopState, teleopState.regionName);   % where the clipper is now
 end

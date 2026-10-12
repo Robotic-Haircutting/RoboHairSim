@@ -6,6 +6,8 @@ function results = runReleaseTests(options)
 %     teleop       headless clipper Teleop on the scalp: safety, cut ==
 %                  predicate, no cut pulling back / with the flow
 %                  (testTeleopClipper)                                  ~1 min
+%     teleopRegion Teleop confined to one region: highlight, moves stop at
+%                  the boundary, only its strands cut (testTeleopRegion) ~1 min
 %     launchers    runAuto / runTeleop open and close (testLaunchers)   ~1 min
 %     autoRegion   plan scalp_back and execute it headless: executed cut ==
 %                  the planner's evaluation B (testAutoRegion)          ~10 min
@@ -22,10 +24,11 @@ run(fullfile(appRoot, 'setupPath.m'));
 tests = {
     "foundations", @() testCamClipperFoundations()
     "teleop", @() testTeleopClipper()
+    "teleopRegion", @() testTeleopRegion()
     "launchers", @() testLaunchers()
     "autoRegion", @() testAutoRegion()};
 if options.Quick
-    tests = tests(1:3, :);
+    tests = tests(1:4, :);
 end
 numTests = size(tests, 1);
 results = table('Size', [numTests, 4], 'VariableTypes', ["string", "logical", "double", "string"], ...

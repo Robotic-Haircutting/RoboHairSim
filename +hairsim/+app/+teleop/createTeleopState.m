@@ -54,7 +54,10 @@ teleopState.spaceHeld = false;
 teleopState.settling = false;     % the robot is still turning/moving toward the surface state
 teleopState.hairRoots = zeros(0, 3);
 teleopState.hairFlow = zeros(0, 3);
+teleopState.strandRegions = strings(0, 1);
+teleopState.regionReachM = 0;
+teleopState.regionName = "";       % "" = whole head (hairsim.app.teleop.setRegion)
 teleopState.station = struct('robot', [], 'sctx', []);
 teleopState.hud = struct('status', "-", 'standoffMm', NaN, 'inContact', false, ...
-    'feedAngleDeg', NaN, 'clearanceMm', NaN, 'rollDeg', 0);
+    'feedAngleDeg', NaN, 'clearanceMm', NaN, 'rollDeg', 0, 'inRegion', true, 'regionDistanceMm', 0);
 end

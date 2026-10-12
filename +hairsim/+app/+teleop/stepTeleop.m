@@ -16,6 +16,9 @@ function [teleopState, poseCommand] = stepTeleop(teleopState, robotAppState, cut
 %        collision -- the post-processor's gates.
 %   A refused move leaves the robot and the surface state where they were
 %   and reports the reason (PoseCommand.solved = false).
+%   With a region selected (hairsim.app.teleop.setRegion) a foot move that
+%   would leave it is refused (OUTSIDE_REGION) -- unless the foot is already
+%   outside and the move brings it closer, so the clipper can be driven in.
 %
 %   Cutting: cutFlag only on an accepted tick that PUSHES FORWARD (W/Up)
 %   with Space held and cutEnabled -- the comb lifts hair it is pushed
@@ -64,6 +67,11 @@ if input.feed ~= 0 || input.side ~= 0
     if any(~isfinite(foot)) || norm(foot - s.footWorldM) > 2 * teleopState.moveStepM * ...
             max(1, hypot(input.feed, input.side))
         [teleopState, poseCommand] = refuse(teleopState, robotAppState, "FOOT_JUMP");
+        return;
+    end
+    [inside, distanceM] = hairsim.app.teleop.regionMembership(teleopState, [s.footWorldM; foot]);
+    if ~inside(2) && ~(distanceM(2) < distanceM(1))
+        [teleopState, poseCommand] = refuse(teleopState, robotAppState, "OUTSIDE_REGION");
         return;
     end
     n = hairsim.cam.smoothedNormalAt(foot, query);
@@ -200,6 +208,7 @@ tool = teleopState.tool;
 query = teleopState.headQuery;
 [height, ~] = hairsim.tool.signedDistanceToHead(T_actual(1:3, 4)', query, 0.2);
 clearance = hairsim.tool.evaluateClipperClearance(T_actual, tool, query, 'CapM', 0.2);
+[inRegion, regionDistanceM] = hairsim.app.teleop.regionMembership(teleopState, s.footWorldM);
 feedAngle = NaN;
 if ~isempty(teleopState.hairFlow)
     against = -flowAt(teleopState, s.footWorldM);
@@ -207,5 +216,6 @@ if ~isempty(teleopState.hairFlow)
 end
 h = struct('status', status, 'standoffMm', 1000 * height, ...
     'inContact', height <= tool.maxLocalHeightM, 'feedAngleDeg', feedAngle, ...
-    'clearanceMm', 1000 * clearance.minM, 'rollDeg', rad2deg(s.rollRad));
+    'clearanceMm', 1000 * clearance.minM, 'rollDeg', rad2deg(s.rollRad), ...
+    'inRegion', inRegion, 'regionDistanceMm', 1000 * regionDistanceM);
 end

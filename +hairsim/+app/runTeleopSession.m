@@ -106,17 +106,12 @@ end
         updatePoseText();
     end
 
-    function onHome(~, ~)
+    function onHome(src, ~)
         [qHome, parkCache] = hairsim.app.robot.clipperSafeHome(robotAppState, scene, parkCache);
-        T_world_ee = getTransform(robotAppState.modelContext.robot, qHome, char(robotAppState.modelContext.endEffector));
-        homeTipWorldM = hairsim.getMountedClipperPoint(T_world_ee, robotAppState.modelContext.toolMount.T_ee_tool);
-        poseCommand = struct('qCandidate', qHome, 'solved', true, 'toolTipWorldM', homeTipWorldM, ...
-            'statusLabel', "HOME", 'toolTipErrorM', 0, 'targetTipWorldM', homeTipWorldM, ...
-            'desiredTipWorldM', homeTipWorldM, 'safeTipWorldM', homeTipWorldM, ...
-            'governorActive', false, 'cutFlag', false);
-        applyTick(poseCommand);
+        applyTick(hairsim.app.robot.poseCommandAt(robotAppState, qHome, "HOME"));
         teleopState = hairsim.app.teleop.syncToRobot(teleopState, robotAppState);
         updatePoseText();
+        dropKeyboardFocus(src);
     end
 
     function parkRobotClipperSafe()
@@ -159,7 +154,7 @@ end
 % =====================================================================
 % Recording (writes the session to disk; cutting does not depend on it)
 
-    function onToggleRecording(~, ~)
+    function onToggleRecording(src, ~)
         if recordingState.isActive
             [recordingState, recordingResult] = hairsim.app.recording.stopAndFinalize(recordingState, ...
                 robotAppState, scene, initialActiveNodeCounts, hairAppState);
@@ -168,8 +163,20 @@ end
         else
             recordingState = hairsim.app.recording.startSession(recordingState, ...
                 numel(robotAppState.state.qCurrent), robotAppState.modelContext.toolMount.T_ee_tool);
+            applyTick(hairsim.app.robot.poseCommandAt(robotAppState, robotAppState.state.qCurrent, "SESSION_START"));
         end
         refreshControls();
+        dropKeyboardFocus(src);
+    end
+
+    function dropKeyboardFocus(src)
+        % a focused button is pressed again by Space (= cut): give the keys
+        % back to the figure, as after a popup change
+        if isgraphics(src)
+            set(src, 'Enable', 'off');
+            drawnow;
+            set(src, 'Enable', 'on');
+        end
     end
 
 % =====================================================================

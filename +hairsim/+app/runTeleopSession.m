@@ -46,6 +46,7 @@ recordingState = hairsim.app.recording.createRecordingState( ...
 teleopState = hairsim.app.teleop.createTeleopState(scene, 'PlannerName', options.PlannerName);
 targetLengthM = options.TargetLengthM;
 regionName = options.RegionName;
+showUncut = false;        % red dots on the roots still to be cut (U / Show uncut)
 installCut();
 parkCache = [];
 headRadiusApproxM = 0.5 * max(scene.headScene.headMeshWorld.bboxSize);
@@ -68,7 +69,8 @@ ui = hairsim.app.view.createSessionControls(fig, ...
         'HairModelingConfig', hairsim.hair.createControlConfigFromLayer(hairAppState.hairLayer), ...
         'HairModelingCallbacks', hairsim.app.hair.createModelingCallbacks(@onHairChanged)));
 ui.teleop = hairsim.app.view.createTeleopPanel(ui.centerPanel, ...
-    struct('Home', @onHome, 'TargetLengthChanged', @onTargetLengthChanged, 'RegionChanged', @onRegionChanged), ...
+    struct('Home', @onHome, 'TargetLengthChanged', @onTargetLengthChanged, 'RegionChanged', @onRegionChanged, ...
+        'ToggleUncut', @onToggleUncut), ...
     struct('TargetHairLengthM', targetLengthM, 'Region', regionName, ...
         'RegionOptions', unique(hairsim.hair.getStrandRegions(hairAppState.hairLayer.haircutState))'));
 
@@ -154,6 +156,36 @@ end
             scene.headScene.headMeshWorld, options.PlannerName, targetLengthM, 'Region', regionName);
         teleopState = hairsim.app.teleop.setHair(teleopState, hairAppState.hairLayer.haircutState, flowDirs);
         teleopState = hairsim.app.teleop.setRegion(teleopState, regionName);
+        refreshUncut();
+    end
+
+    function onToggleUncut(src, ~)
+        if isFromSpace(src)
+            set(src, 'Value', showUncut);   % a Space press flipped it: put it back
+            return;
+        end
+        setUncut(logical(get(src, 'Value')));
+        dropKeyboardFocus(src);
+    end
+
+    function setUncut(on)
+        showUncut = on;
+        if isfield(ui, 'teleop') && isgraphics(ui.teleop.uncutToggle)
+            set(ui.teleop.uncutToggle, 'Value', on);
+        end
+        refreshUncut();
+    end
+
+    function refreshUncut()
+        % redraw only while shown; the count in the readout is always live
+        if exist('ax', 'var') && isgraphics(ax)
+            if showUncut
+                hairsim.app.view.drawUncutStrands(ax, hairsim.app.hair.uncutStrands(hairAppState.hairLayer.haircutState), ...
+                    scene.headScene.headCenterWorldM);
+            else
+                hairsim.app.view.drawUncutStrands(ax, []);
+            end
+        end
     end
 
 % =====================================================================
@@ -201,6 +233,10 @@ end
 
     function onKeyDown(~, event)
         noteSpace(event);
+        if strcmpi(event.Key, 'u')
+            setUncut(~showUncut);
+            return;
+        end
         teleopState = hairsim.app.teleop.handleKey(teleopState, event.Key, true);
     end
 
@@ -232,6 +268,9 @@ end
             robotAppState, hairAppState, recordingState, viewState, scene, floorZ, ...
             'Record', recordingState.isActive, 'ModeLabel', "teleop", 'ShowLiveMetrics', true);
         idleHairTicks = hairSettleTicks();
+        if showUncut && poseCommand.cutFlag
+            refreshUncut();
+        end
     end
 
 % =====================================================================
@@ -264,10 +303,13 @@ end
         if isfinite(robotAppState.state.railThetaRad)
             rail = sprintf("%.0f deg", rad2deg(robotAppState.state.railThetaRad));
         end
+        uncut = hairsim.app.hair.uncutStrands(hairAppState.hairLayer.haircutState);
         set(ui.teleop.poseText, 'String', sprintf([ ...
-            'Pose      %s\n', 'Region    %s\n', 'Rail      %s\n', 'Height    %.1f mm (touching: %s)\n', ...
+            'Pose      %s\n', 'Region    %s\n', 'Done      %d / %d (%.1f%%), %d left\n', 'Rail      %s\n', ...
+            'Height    %.1f mm (touching: %s)\n', ...
             'Feed      %.0f deg off against-flow\n', 'Roll      %.0f deg\n', 'Clearance %.1f mm'], ...
-            h.status, region, rail, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
+            h.status, region, uncut.numDone, uncut.numNeeds, 100 * uncut.numDone / max(1, uncut.numNeeds), ...
+            numel(uncut.idx), rail, h.standoffMm, contact, h.feedAngleDeg, h.rollDeg, h.clearanceMm));
     end
 
     function setStatus(text)

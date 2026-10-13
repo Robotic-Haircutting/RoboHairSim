@@ -11,7 +11,8 @@ function result = testTeleopRegion(options)
 %     - switched to another region the clipper is outside it, and every
 %       accepted move then brings it closer (it can be driven in, not away);
 %     - the highlight covers exactly the head faces regionMembership puts
-%       in the region.
+%       in the region;
+%     - "Show uncut" marks exactly the region strands still above target.
 
 arguments
     options.AdapterName (1, 1) string = "ur5e"
@@ -57,6 +58,18 @@ cut = find(hairAppState.hairLayer.haircutState.hairState.activeNodeCounts < coun
 fprintf('cut %d strands, regions: %s\n', numel(cut), strjoin(unique(regions(cut))', ", "));
 assert(~isempty(cut), "nothing was cut");
 assert(all(regions(cut) == region), "a strand outside the region was cut");
+
+% "Show uncut": exactly the region strands still above target, at their roots
+hc = hairAppState.hairLayer.haircutState;
+uncut = hairsim.app.hair.uncutStrands(hc);
+expectedLeft = find(regions' == region & hc.hairState.activeNodeCounts > hc.lengthGoal.targetActiveNodeCounts);
+assert(isequal(uncut.idx, expectedLeft) && uncut.numNeeds == nnz(regions == region) && ...
+    uncut.numDone == numel(cut) && ~any(ismember(cut, uncut.idx)), "uncut strands are not the region strands left");
+fig = figure('Visible', 'off');
+h = hairsim.app.view.drawUncutStrands(axes(fig), uncut);
+assert(numel(h.XData) == numel(uncut.idx), "not one red dot per uncut strand");
+fprintf('show uncut: %d / %d done, %d red dots\n', uncut.numDone, uncut.numNeeds, numel(h.XData));
+close(fig);
 
 % another region: the clipper is outside; only moves toward it are taken
 others = setdiff(unique(regions), region);

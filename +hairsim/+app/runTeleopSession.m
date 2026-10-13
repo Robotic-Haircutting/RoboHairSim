@@ -52,6 +52,8 @@ headRadiusApproxM = 0.5 * max(scene.headScene.headMeshWorld.bboxSize);
 floorZ = scene.headScene.headMeshWorld.bboxMin(3) - 0.35 * headRadiusApproxM;
 isRunning = true;
 idleHairTicks = 0;        % idle frames left in which the hair keeps settling
+sessionClock = tic;
+lastSpaceS = -Inf;        % when Space was last pressed/released (see isFromSpace)
 
 fig = figure('Name', 'HairSimApp: Teleop', 'NumberTitle', 'off', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.05, 0.05, 0.85, 0.85], 'CloseRequestFcn', @closeSession, ...
@@ -107,6 +109,9 @@ end
     end
 
     function onHome(src, ~)
+        if isFromSpace(src)
+            return;
+        end
         [qHome, parkCache] = hairsim.app.robot.clipperSafeHome(robotAppState, scene, parkCache);
         applyTick(hairsim.app.robot.poseCommandAt(robotAppState, qHome, "HOME"));
         teleopState = hairsim.app.teleop.syncToRobot(teleopState, robotAppState);
@@ -155,6 +160,9 @@ end
 % Recording (writes the session to disk; cutting does not depend on it)
 
     function onToggleRecording(src, ~)
+        if isFromSpace(src)
+            return;
+        end
         if recordingState.isActive
             [recordingState, recordingResult] = hairsim.app.recording.stopAndFinalize(recordingState, ...
                 robotAppState, scene, initialActiveNodeCounts, hairAppState);
@@ -167,6 +175,15 @@ end
         end
         refreshControls();
         dropKeyboardFocus(src);
+    end
+
+    function tf = isFromSpace(src)
+        % Space (= cut) also presses a button that holds keyboard focus;
+        % such a press comes with a Space key event, a mouse click does not
+        tf = toc(sessionClock) - lastSpaceS < 0.5;
+        if tf
+            dropKeyboardFocus(src);
+        end
     end
 
     function dropKeyboardFocus(src)
@@ -183,11 +200,19 @@ end
 % Keyboard -> Teleoperation -> shared tick
 
     function onKeyDown(~, event)
+        noteSpace(event);
         teleopState = hairsim.app.teleop.handleKey(teleopState, event.Key, true);
     end
 
     function onKeyUp(~, event)
+        noteSpace(event);
         teleopState = hairsim.app.teleop.handleKey(teleopState, event.Key, false);
+    end
+
+    function noteSpace(event)
+        if strcmpi(event.Key, 'space')
+            lastSpaceS = toc(sessionClock);
+        end
     end
 
     function tickTeleop()

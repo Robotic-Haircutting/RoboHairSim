@@ -6,6 +6,21 @@ function recordingState = startSession(recordingState, numJoints, toolMountTEeTo
 %   pose, since Recording doesn't read the robot itself).
 %   toolMountTEeTool is toolMount.T_ee_tool (needed to reset the clipper
 %   trajectory recorder, which converts joint samples to tip position).
+%   A recording that was already finalized is never overwritten: starting
+%   again opens a new run folder next to it.
+if recordingState.isFinalized
+    runsDir = fileparts(recordingState.runPaths.runDir);
+    runId = "robot_haircut_" + string(datetime('now', 'Format', "yyyyMMdd'T'HHmmss"));
+    candidate = runId;
+    for k = 2:99
+        if ~isfolder(fullfile(runsDir, candidate)) || isempty(dir(fullfile(runsDir, candidate, '*.csv')))
+            break;
+        end
+        candidate = runId + "_" + k;
+    end
+    recordingState.runPaths = hairsim.control.createRobotHaircutRunPaths(recordingState.runPaths.root, candidate);
+    recordingState.isFinalized = false;
+end
 recordingState.startTime = tic;
 recordingState.trajectoryRecorder = hairsim.control.createClipperTrajectoryRecorder( ...
     recordingState.startTime, toolMountTEeTool);

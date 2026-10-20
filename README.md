@@ -119,10 +119,12 @@ result = runFullDemo('BasePlacementId', "rail180", 'TargetLengthM', 0.005, ...
     'SaveBundlePath', "outputs/fullhead_bundle.mat");
 ```
 
-`BasePlacementId` is `"fixed"` (default), `"ceiling"`, `"rail<deg>"` (one
-rail station for every region, e.g. `"rail180"`), or `"railPerRegion"` (each
-region at its own station, with the rail sliding between them). See
-`help hairsim.app.runFullDemoSession` for all options.
+`BasePlacementId` is `"fixed"` (default), `"ceiling"`, `"rail<deg>"` (the
+rail, starting at that station, e.g. `"rail180"`), or `"railPerRegion"` (the
+rail, starting at a preset station for the first region). On the rail the
+planner picks the station of every stroke itself and the rail slides between
+stations when needed, so the two rail options only set where the session
+starts. See `help hairsim.app.runFullDemoSession` for all options.
 
 ### Replay
 
@@ -188,8 +190,10 @@ runAuto('AdapterName', "myRobot")
 ```
 
 `+hairsim/+robot/+adapters/ur5e.m` is the reference implementation; see
-`help hairsim.robot.registerRobotAdapter` for the full contract. If no Home
-pose is given, a safe one is solved by IK on first use.
+`help hairsim.robot.registerRobotAdapter` for the full contract. If no
+`qHomeConstant` is given, a safe Home is solved by IK on first use; without a
+`qHomeCeiling`, the ceiling mount starts from the robot's own home
+configuration.
 
 ### Use your own head and hair roots
 
@@ -258,12 +262,14 @@ runReleaseTests('Quick', true)   % about 3 min, skips the full region plan
   rule above holds, the strand is stood up and cut at the target length.
   Strands already at or below the target are never touched.
 - **Guide-hair model.** Strands are guide hairs, not a full hair volume. The
-  physics can lift strands at the back and sides off the scalp; coverage uses
-  the roots, so it is unaffected, but the rendered shape is.
+  hair physics (gravity, bending, length constraints, contact with the exact
+  head mesh) only shapes the displayed hair; coverage and cutting are decided
+  from the roots and the strand nodes, so they do not depend on it.
 - **Collision scope.** Robot links are checked against a convex hull of the
-  head, the clipper against the exact head mesh, plus self-collision. There
-  is no shoulder or torso model, so front and side rail stations are not
-  checked against the body.
+  head, the clipper against the exact head mesh, plus self-collision. On the
+  rail the links are also checked against a simplified floor, torso and
+  shoulder model (a cylinder and a box, not anatomy); the fixed and ceiling
+  mounts have no body model.
 - **Uniform target length** per run (one guard-comb length for the area
   being cut).
 

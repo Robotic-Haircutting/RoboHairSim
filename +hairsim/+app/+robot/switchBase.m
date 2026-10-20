@@ -1,14 +1,12 @@
 function appState = switchBase(appState, basePlacementId)
 %SWITCHBASE Rebuild RobotModelContext (robot/headCollision/qHome) for a new
 %   base placement and reset RobotState to that placement's own Home.
-%   Ported from run_robot_haircut.m's applyBaseSetup.
 %
 %   basePlacementId: "fixed" | "ceiling" | "rail<thetaDeg>" (e.g. "rail135").
 %
-%   Per the session lifecycle invariant (see docs/EXTENDING.md /
-%   the plan's "Session lifecycle" section): the App shell must not call
-%   this while session.phase == "executing", and must treat the current
-%   plan as invalidated after calling this (a plan is only valid for the
+%   Session lifecycle rule: a session must not call this while
+%   session.phase == "executing", and must treat the current plan as
+%   invalidated after calling this (a plan is only valid for the
 %   RobotModelContext it was made against).
 
 arguments

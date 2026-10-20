@@ -4,8 +4,7 @@ function metrics = queryMetrics(recordingState, phase)
 %   finalizeSession's own result.metrics -- there is nothing further to
 %   query once a session is finalized). Returns a struct of NUMBERS ONLY;
 %   turning it into displayed text is hairsim.app.view.renderMetricsText's
-%   job, not this function's (see the plan's fix: the original draft
-%   wrongly put text rendering under Recording).
+%   job, not this function's.
 arguments
     recordingState (1, 1) struct
     phase (1, 1) string {mustBeMember(phase, ["live", "idle"])}

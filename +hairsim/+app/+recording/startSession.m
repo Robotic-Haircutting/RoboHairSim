@@ -1,9 +1,8 @@
 function recordingState = startSession(recordingState, numJoints, toolMountTEeTool)
 %STARTSESSION Reset all logs and the session clock, and mark recording
-%   active. Ported from run_robot_haircut.m's startHaircutSession (minus
-%   the SESSION_START sample -- append that via
+%   active. The SESSION_START sample is not added here -- append it via
 %   hairsim.app.recording.appendSample once the caller has the current
-%   pose, since Recording doesn't read the robot itself).
+%   pose, since Recording doesn't read the robot itself.
 %   toolMountTEeTool is toolMount.T_ee_tool (needed to reset the clipper
 %   trajectory recorder, which converts joint samples to tip position).
 %   A recording that was already finalized is never overwritten: starting

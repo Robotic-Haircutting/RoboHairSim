@@ -1,33 +1,37 @@
 function handles = drawRegionPlanPreview(ax, regionPlan)
-%DRAWREGIONPLANPREVIEW Static preview of a Milestone-2 region plan in ax.
-%   Draws what hairsim.motion.planAutonomousRegionHaircut decided for the
-%   WHOLE region at once, nothing else, and never moves the robot or touches
-%   the hair. Three kinds of thing, plus the targets:
-%     - scalp lane: thin dashed gray line, one per frozen lane;
-%     - executable stroke: its safe CUT path (forward kinematics of the
-%       planned joint path, 15 mm above the scalp) as a thick solid blue line;
-%     - transit between two chained strokes (when transits were planned): orange
-%       dashed path, and an executable stroke with no transit to it ("not
-%       continuously reachable", not run) drawn in amber with a mark;
-%     - infeasible stroke: its planned safe path as a red dotted line with a
-%       red X at its middle (the robot could not follow it);
-%     - target cut nodes of the region: green = within the tool radius of an
-%       executable CUT path, gray = not covered by any executable stroke.
-%   Each stroke carries its lane number; Run executes every executable stroke, in
-%   lane order. Every object carries Tag 'HairSimRegionPlan', so a previous
-%   preview is replaced on every call and survives the per-frame scene redraw
-%   (which only deletes its own tags). The user's camera/limits are preserved.
+%DRAWREGIONPLANPREVIEW Static preview of a region plan in ax.
+%   Draws what the planner decided for the WHOLE region at once, nothing
+%   else, and never moves the robot or touches the hair:
+%     - scalp path of each stroke (regionPlan.allLanesWorldM, for the
+%       camClipper planner the clipper's foot line on the scalp): thin
+%       dashed gray line;
+%     - executable stroke: its achieved CUT path (the clipper TCP by forward
+%       kinematics of the planned joint path) as a thick solid blue line,
+%       amber with "(no transit)" if it is executable but not in the chain
+%       (not run);
+%     - infeasible stroke (planners that keep them; the camClipper planner
+%       makes strokes only from executable pieces): its planned safe path
+%       as a red dotted line with a red X at its middle;
+%     - feasible transit: orange dashed path;
+%     - target cut nodes of the region (regionPlan.targetCutNodesWorldM):
+%       green = cut by the execution chain (regionPlan.targetCovered),
+%       gray = not.
+%   Each stroke is labelled with its number (stroke.laneIdx); Run executes
+%   the chain in order. Every object carries Tag 'HairSimRegionPlan', so a
+%   previous preview is replaced on every call and survives the per-frame
+%   scene redraw (which only deletes its own tags). The user's
+%   camera/limits are preserved.
 %
 %   The return value groups every drawn object by category so a caller can
 %   toggle categories independently (e.g. hide infeasible strokes without
-%   touching the lanes):
-%     handles.lane            scalp lane lines (one per stroke)
+%   touching the scalp paths):
+%     handles.lane            scalp path lines (one per stroke)
 %     handles.executable       executable stroke CUT paths (in-chain or not)
 %     handles.infeasible       infeasible stroke paths + their X marks
-%     handles.transit          feasible transit paths between chained strokes
+%     handles.transit          feasible transit paths
 %     handles.targetCovered    covered target-node scatter
 %     handles.targetUncovered  uncovered target-node scatter
-%     handles.label            per-stroke lane-number text labels
+%     handles.label            per-stroke number labels
 %   Every field is a gobjects column vector (possibly empty); all still carry
 %   Tag 'HairSimRegionPlan', so deletion/replacement on the next call is
 %   unchanged.

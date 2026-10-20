@@ -1,8 +1,7 @@
 function [executionState, segmentInfo] = loadSegmentAt(executionState, pos)
 %LOADSEGMENTAT Load queue position pos's data into currentSegment and
-%   reset trajectoryIndex to 1. Ported from run_robot_haircut.m's
-%   startQueuedStroke (minus updateSessionConfigFromAutoPanel/
-%   setPlanStatusText, which are App-shell/session concerns).
+%   reset trajectoryIndex to 1 (updating the session config and the plan
+%   status text are App-shell concerns, not done here).
 regionPlan = executionState.regionPlan;
 segment = executionState.queue(pos);
 numStrokesInRun = nnz([executionState.queue.kind] == "stroke");

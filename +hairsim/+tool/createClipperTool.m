@@ -33,7 +33,7 @@ function tool = createClipperTool(options)
 %   centred blade, a laterally offset blade and a rolled blade (edge cut).
 %   MaxFeedAngleRad: the comb only lifts hair it is pushed against; when
 %   finite, a root also needs angle(feed x, -hair flow) <= this. Inf
-%   (default) = direction ignored (the original rule).
+%   (default) = direction ignored.
 
 arguments
     options.TcpOffsetM (1, 1) double {mustBePositive} = 0.045

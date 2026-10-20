@@ -1,14 +1,11 @@
 function raw = ur5e()
 %UR5E Robot adapter spec for the Universal Robots UR5e.
 %   Reference implementation of the robot adapter contract (see
-%   hairsim.robot.registerRobotAdapter and docs/EXTENDING.md). Values here
-%   are the exact constants the original matlab_ur5e bootstrap used
-%   (run_robot_haircut.m's setup block and exploreCeilingMountPose.m):
-%   qHomeConstant is the captured Home that keeps the clipper
-%   already clear of the head for the default head scene (so the
-%   clearance fix-up in hairsim.robot.createRobotAdapter is normally a
-%   no-op for this robot), and qHomeCeiling is the tuned overhead-mount
-%   Home from the ceiling-placement study.
+%   hairsim.robot.registerRobotAdapter). qHomeConstant is a Home captured
+%   for the default head scene: hairsim.robot.createRobotAdapter checks it
+%   against the real clipper model and re-solves it by IK if it leaves the
+%   clipper closer than 1 mm to the head. qHomeCeiling is a Home tuned for
+%   the overhead mount and is used as given.
 
 raw = struct();
 raw.name = "ur5e";

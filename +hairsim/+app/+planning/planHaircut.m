@@ -2,11 +2,10 @@ function [planningState, planResult] = planHaircut(planningState, planRequest)
 %PLANHAIRCUT Plan one region, with disk caching. Thin wrapper around
 %   hairsim.api.planRegion (itself a thin wrapper around
 %   hairsim.planning.getRegionPlanner) plus hairsim.motion.regionPlanCache
-%   -- this is the entire subsystem; no planning logic lives here. Ported
-%   from run_robot_haircut.m's planAutoRegion, minus the interactive
-%   questdlg prompt: that is a UI concern, so this function just reports
-%   planResult.fromCache/cacheReason and lets the App shell decide whether
-%   to ask the user or use the cached plan outright.
+%   -- this is the entire subsystem; no planning logic lives here. Asking
+%   the user whether to reuse a cached plan is a UI concern, so this
+%   function just reports planResult.fromCache/cacheReason and lets the
+%   App shell decide.
 %
 %   planRequest fields: robotModel (RobotModelContext), qCurrent (RobotState's
 %   current pose -- the planner's context needs it, even though the cache

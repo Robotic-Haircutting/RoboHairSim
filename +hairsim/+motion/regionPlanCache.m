@@ -1,5 +1,5 @@
 function varargout = regionPlanCache(action, varargin)
-%REGIONPLANCACHE Disk cache of Auto region plans under matlab_ur5e/config/plans.
+%REGIONPLANCACHE Disk cache of region plans under <configDir>/plans (config/plans).
 %   One file per (method, region, target length), grouped by target length first:
 %       config/plans/<len>cm/<method>/<region>.mat   (variables: regionPlan, meta)
 %   method is a registered planner name (hairsim.planning.registerBuiltinPresets),
@@ -89,13 +89,9 @@ function stamp = plannerStamp(method)
 % Modification times of the planner files this method depends on. Any edit to
 % them invalidates the cache, so a plan is never replayed from older logic.
 %
-% Updated for the HairSimApp core+strategy planning engine
-% (+hairsim/+planning -- see docs/EXTENDING.md): a "method" name is now a
-% named combination of 3 independent strategy files, not one monolithic
-% planner file, so the stamp covers the shared engine plus whichever
-% strategy files that preset actually uses (see
-% hairsim.planning.registerBuiltinPresets for the name -> strategy mapping
-% this must stay in sync with).
+% For a camClipper-family method that is the planner, its tool, the
+% transit connector and every file of +cam, +post, +tool and +eval, plus
+% the IK helper every method uses.
 motionDir = fileparts(mfilename('fullpath'));
 planningDir = fullfile(fileparts(motionDir), '+planning');
 files = {fullfile(motionDir, 'solveRobotForClipperTip.m')};

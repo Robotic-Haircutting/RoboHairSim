@@ -1,8 +1,7 @@
 function renderMetricsText(viewState, phase, metrics, options)
-%RENDERMETRICSTEXT Format and display the metrics text widget. Ported from
-%   run_robot_haircut.m's updateLiveMetricsText/updateIdleMetricsText/
-%   updateSavedMetricsText -- moved here (not Recording) because setting a
-%   widget's 'String' is a view concern; the numbers themselves come from
+%RENDERMETRICSTEXT Format and display the metrics text widget. This lives
+%   in View, not Recording, because setting a widget's 'String' is a view
+%   concern; the numbers themselves come from
 %   hairsim.app.recording.queryMetrics (phase "live"/"idle") or
 %   hairsim.app.recording.finalizeSession's result.metrics (phase "saved").
 %
@@ -10,7 +9,7 @@ function renderMetricsText(viewState, phase, metrics, options)
 %   phase == "idle":  metrics = queryMetrics(recordingState, "idle")
 %   phase == "saved": metrics = finalizeSession's result.metrics;
 %                      options.AutoRunSummary optionally prefixes the
-%                      headline (matches the original's autoRunSummary).
+%                      headline.
 
 arguments
     viewState (1, 1) struct

@@ -1,12 +1,12 @@
 function stroke = emptyStroke(laneIdx)
-%EMPTYSTROKE One planned lane. executable = false until the active
-%   lane-recovery strategy accepts it; the geometry fields are filled as
-%   far as planning got, so a failed stroke still shows its (unexecutable)
-%   safe path. Carries the superset of fields every built-in lane-recovery
-%   / orientation strategy combination can populate (failLane/bridgeLift x
-%   strict/fallbackGrid), so any combination -- including ones none of the
-%   4 original planner files tried -- can be represented uniformly; a
-%   strategy that doesn't use a given field just leaves it at its default.
+%EMPTYSTROKE One stroke of a region plan, with every field a planner may
+%   fill. executable = false until the planner accepts the stroke; the
+%   geometry fields are filled as far as planning got. The camClipper
+%   planner makes one stroke per executable segment piece
+%   (hairsim.post.postProcessToolpaths), numbered by laneIdx; fields it
+%   does not use (orientation fallback, intra-lane jumps, per-stroke
+%   coverage) keep their defaults and are kept for the regionPlan contract
+%   every consumer reads.
 stroke = struct( ...
     'laneIdx', laneIdx, 'executable', false, 'reason', "", 'failedSample', 0, 'detail', "", ...
     'subdivisionConverged', false, 'scalpCutPathWorldM', zeros(0, 3), ...

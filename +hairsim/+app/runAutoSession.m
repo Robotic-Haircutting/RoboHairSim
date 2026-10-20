@@ -17,8 +17,10 @@ function runAutoSession(options)
 %   provenance and flags it Outdated.
 %
 %   The planner list is every registered planner
-%   (hairsim.planning.listRegionPlanners); a release build registers only
-%   the camClipper family.
+%   (hairsim.planning.listRegionPlanners); a release registers only
+%   "camClipperAgainstFlow". A camClipper-family plan (see
+%   hairsim.planning.camClipperTool) is cut by the comb-lift clipper model,
+%   any other plan by the default cut.
 
 arguments
     options.AdapterName (1, 1) string = "ur5e"
@@ -28,7 +30,7 @@ arguments
     options.RegionName (1, 1) string = "scalp_top_left"
     options.TargetLengthM (1, 1) double {mustBeNonnegative} = 0.005
     options.PlannerName (1, 1) string = "camClipperAgainstFlow"
-    options.LaneIndices (1, :) double = []    % lane planners only; camClipper plans every segment
+    options.LaneIndices (1, :) double = []    % passed to the planner; the built-in one ignores it
 end
 
 sceneArgs = {};
@@ -67,7 +69,7 @@ session.isRunning = true;
 session.pendingConfig = struct('regionName', options.RegionName, ...
     'targetLengthM', options.TargetLengthM, 'plannerName', options.PlannerName);
 
-fig = figure('Name', 'HairSimApp: Auto', 'NumberTitle', 'off', 'Color', 'w', ...
+fig = figure('Name', 'HairSim: Auto', 'NumberTitle', 'off', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.05, 0.05, 0.85, 0.85], 'CloseRequestFcn', @closeSession);
 ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0.06, 0.08, 0.70, 0.82]);
 hairsim.hideAxesToolbar(ax);

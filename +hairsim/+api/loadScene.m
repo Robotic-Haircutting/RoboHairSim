@@ -2,13 +2,13 @@ function scene = loadScene(options)
 %LOADSCENE Load the head mesh, hair-root model and planning data this
 %   library needs, as a single library call -- no GUI required.
 %
-%   Unlike the original matlab_ur5e bootstrap (which hardcoded data/ as a
-%   sibling of the matlab folder), every path here is overridable, so you
-%   can point this at your own head-scan data instead of the bundled
-%   placeholder in HairSimApp/data: scene = hairsim.api.loadScene(
-%   'DataDir', '/path/to/your/data') uses HeadScan.stl, hair_roots.json
-%   and head_regions.json from that folder instead (same file names and
-%   formats the bundled placeholder uses -- see docs/EXTENDING.md).
+%   Data come from data/ (or, if there is none, a data/ one level up):
+%   HeadScan.stl (head mesh), hair_roots.json (one entry per root, with its
+%   scalp region) and HairClipper.stl (clipper mesh). To use your own head,
+%   put the same three files in a folder and pass it:
+%   scene = hairsim.api.loadScene('DataDir', '/path/to/your/data')
+%   (file formats: the "Use your own head and hair roots" part of
+%   README.md).
 %
 %   options.PlanningDataDir is the root the sessions read config/ from and
 %   write runs to (scene.rootDir); it defaults to this app's own root.

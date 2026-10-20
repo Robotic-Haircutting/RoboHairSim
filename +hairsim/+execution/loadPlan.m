@@ -1,16 +1,15 @@
 function [executionState, firstStroke] = loadPlan(regionPlan)
 %LOADPLAN Build the run queue (stroke, transit, stroke, ... over the
 %   plan's chain of continuously reachable strokes) from a finished
-%   regionPlan. Ported from run_robot_haircut.m's buildRunSegments.
+%   regionPlan.
 %   Returns a freshly-idle executionState (queuePos=0 -- call
 %   hairsim.execution.startRun to actually begin) plus firstStroke, which
 %   the caller must SETUP-jump the robot to (place it on firstStroke's
 %   first sample -- there is no planned transit INTO the first stroke of a
-%   chain, exactly as the original's applySetupJumpToStroke only ever ran
-%   once, before the run, never between segments) before calling startRun.
+%   chain: the setup jump happens once, before the run, never between
+%   segments) before calling startRun.
 %
-%   Errors if regionPlan is not executable (mirrors the original's
-%   "Auto has no other planner: without a current plan this refuses").
+%   Errors if regionPlan is not executable.
 
 arguments
     regionPlan (1, 1) struct

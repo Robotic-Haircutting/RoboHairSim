@@ -1,20 +1,18 @@
 function executePlan(regionPlan, robotModelContext, options)
 %EXECUTEPLAN Headless replay of a finished regionPlan -- no GUI required.
-%   Promotes playSavedRegionPlan.m's replay logic onto hairsim.execution
-%   (the same core engine the interactive Auto session uses), so the GUI and this headless entry point share one
-%   implementation of "walk the plan's stroke/transit queue" -- see
-%   docs/EXTENDING.md's dependency-direction note: this file depends on
-%   hairsim.execution/hairsim.motion/hairsim.hair/hairsim.robot directly,
-%   never on hairsim.app (a headless caller must never need a GUI
-%   dependency to exist).
+%   Runs the plan on hairsim.execution, the same engine the interactive
+%   Auto session and the full demo use, so the GUI and this headless entry
+%   share one implementation of "walk the plan's stroke/transit queue".
+%   Dependency direction: this file depends on hairsim.execution /
+%   hairsim.motion / hairsim.hair / hairsim.robot directly, never on
+%   hairsim.app (a headless caller must never need a GUI to exist).
 %
 %   executePlan(regionPlan, robotModelContext)
 %   executePlan(regionPlan, robotModelContext, 'ReplayHair', true, ...
 %       'HeadScene', headScene, 'HairLayer', hairLayer)
 %
 %   robotModelContext: robot, endEffector, toolMount (headCollision/qHome
-%   are not needed for replay -- nothing is re-solved or re-checked here,
-%   exactly as the original playSavedRegionPlan.m's own docs state).
+%   are not needed for replay -- nothing is re-solved or re-checked here).
 %
 %   options.ReplayHair (default false): also cut hair sample by sample via
 %   hairsim.hair.updateHairLayerForClipper, driven by each segment's own

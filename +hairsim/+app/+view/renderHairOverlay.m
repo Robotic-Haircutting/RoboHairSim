@@ -2,7 +2,7 @@ function renderHairOverlay(viewState, haircutState)
 %RENDERHAIROVERLAY Redraw the hair/debris overlay. Thin wrapper around
 %   hairsim.hair.render.updateHaircutLayerOverlay; independent of
 %   renderScene so hair-only changes never force a robot redraw and vice
-%   versa (same separation the original function's own docs describe).
+%   versa.
 arguments
     viewState (1, 1) struct
     haircutState (1, 1) struct

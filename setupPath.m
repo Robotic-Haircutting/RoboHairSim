@@ -1,10 +1,15 @@
 function setupPath()
-%SETUPPATH Put this HairSim version, and only this one, on the MATLAB path.
-%   HairSimAppTest (development) and HairSimApp (release) both define the
-%   +hairsim package; with both on the path MATLAB silently uses whichever
-%   comes first. This removes every other folder that provides +hairsim
-%   (and everything under its root), then adds this version: the app root
-%   and the offline-tool / test folders that exist in this build.
+%SETUPPATH Put this copy of HairSim, and only this one, on the MATLAB path.
+%   Every copy of HairSim (e.g. a release and a development checkout)
+%   defines the +hairsim package; with two on the path MATLAB silently
+%   uses whichever comes first. This removes every other folder that
+%   provides +hairsim (and everything under its root), then adds this
+%   copy: its root and the test folders it has. runAuto, runTeleop,
+%   runFullDemo and replayBundle call it first, so you only need it to use
+%   the hairsim.* functions directly:
+%
+%   setupPath
+%   scene = hairsim.api.loadScene();
 
 here = fileparts(mfilename('fullpath'));
 entries = strsplit(path, pathsep);
@@ -35,9 +40,8 @@ if isfolder(fullfile(pwd, '+hairsim')) && ~strcmp(pwd, here)
         "The current folder %s has its own +hairsim, which MATLAB uses before the path. cd elsewhere (e.g. cd('%s')).", pwd, here);
 end
 
-% the app root plus whichever of the optional folders this build has (a
-% release build ships fewer than the development tree)
-folders = {here, fullfile(here, 'offline', 'coverage'), fullfile(here, 'tests', 'camClipper'), ...
+% the root plus whichever of the test folders this copy has
+folders = {here, fullfile(here, 'tests', 'camClipper'), ...
     fullfile(here, 'tests', 'app'), fullfile(here, 'tests', 'release')};
 addpath(folders{cellfun(@isfolder, folders)});
 clear functions             % drop persistent registries/caches built by another version

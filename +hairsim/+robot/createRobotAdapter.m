@@ -2,10 +2,9 @@ function adapter = createRobotAdapter(name, headScene, toolMount, options)
 %CREATEROBOTADAPTER Build a ready-to-use robot/IK bootstrap for one named robot.
 %   adapter = hairsim.robot.createRobotAdapter(name, headScene, toolMount)
 %
-%   This replaces the robot/IK bootstrap that used to be duplicated,
-%   near-verbatim, in ~20+ files across matlab_ur5e (loadrobot + attach
-%   clipper collision + inverseKinematics + the Home clearance fix-up +
-%   the ceiling-mount Home). Adding a new robot means writing one
+%   One place for the robot bootstrap: loadrobot, the clipper collision
+%   body, the IK solver, the Home clearance fix-up and the ceiling-mount
+%   Home. Adding a new robot means writing one
 %   +hairsim/+robot/+adapters/<name>.m file (see ur5e.m for the reference
 %   contract) and registering it -- never editing this function.
 %
@@ -19,8 +18,10 @@ function adapter = createRobotAdapter(name, headScene, toolMount, options)
 %   base), ik, endEffector, weights, numJoints, redundantJointIndices
 %   (1:numJoints), qHome (safe at the default head scene; re-solved via IK
 %   if the adapter's own tuned constant is missing, wrong-sized, or leaves
-%   the clipper model closer than options.HomeClearanceM to the head), qCurrent (= qHome), qHomeCeiling (the
-%   ceiling-mount study's Home; same fallback rule), toolMount,
+%   the clipper model closer than options.HomeClearanceM to the head),
+%   qCurrent (= qHome), qHomeCeiling (the adapter's ceiling-mount Home as
+%   given, or the robot's homeConfiguration if missing or wrong-sized; no
+%   clearance fix-up), toolMount,
 %   headCollision (collision objects for headScene.headMeshWorld, computed
 %   once here so callers building a planning context do not recompute it).
 %
@@ -65,7 +66,7 @@ qHome = resolveHomeConstant(raw.qHomeConstant, numJoints, robot);
 % An untuned robot (no/wrong-size qHomeConstant) falls back to its zero
 % posture, which is nowhere near the head (e.g. kinovaGen3 points straight
 % up), so the clearance test below would never trigger -- always run the
-% IK fix-up for it, as matlab_gen3's createGuiHomeConfiguration did.
+% IK fix-up for it.
 homeIsTuned = numel(raw.qHomeConstant) == numJoints;
 ik = inverseKinematics('RigidBodyTree', robot);
 ik.SolverParameters.AllowRandomRestart = false;

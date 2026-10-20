@@ -1,6 +1,5 @@
 function appState = setLength(appState, hairLengthFactor)
-%SETLENGTH Ported from run_robot_haircut.m's setHairLengthControl (which
-%   called the shared rebuildHairLayerFromControls). Rebuilds the hair
+%SETLENGTH Set the hair length. Rebuilds the hair
 %   geometry at the new length factor, keeping the current density factor
 %   (hairsim.hair.rebuildHairLayer itself re-applies the current
 %   rigidity/style fields from hairLayer, so nothing else needs restating

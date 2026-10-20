@@ -1,8 +1,7 @@
 function [executionState, poseCommand, info] = stepExecution(executionState, robotModelContext)
-%STEPEXECUTION Advance the current segment by one sample. Ported from
-%   run_robot_haircut.m's runAutoControlStep + advanceRegionRun (auto-
-%   advancing to the next queued segment, or finishing the run, happens
-%   inside this function -- Execution owns that bookkeeping).
+%STEPEXECUTION Advance the current segment by one sample (auto-advancing
+%   to the next queued segment, or finishing the run, happens inside this
+%   function -- Execution owns that bookkeeping).
 %
 %   robotModelContext (read-only, explicit input -- Execution never holds
 %   its own reference to the robot): robot, endEffector, toolMount. Used

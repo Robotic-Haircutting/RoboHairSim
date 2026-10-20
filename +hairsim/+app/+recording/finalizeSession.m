@@ -2,8 +2,7 @@ function [recordingState, result] = finalizeSession(recordingState, ...
         robotModelContext, scenePaths, headMeshWorld, initialActiveNodeCounts, ...
         finalHaircutState, autoPlanHistory, config)
 %FINALIZESESSION Write every output file (CSVs, metrics.json, summary.txt)
-%   and return the same `result` struct (incl. result.metrics)
-%   run_robot_haircut.m's endHaircutSession already produced. Thin wrapper
+%   and return the session's `result` struct (incl. result.metrics). Thin wrapper
 %   around hairsim.control.finalizeRobotHaircutRun -- that function needs
 %   data from several subsystems (Recording's own logs, the robot model,
 %   the scene's paths/head mesh, Hair/Sim's node counts, Auto

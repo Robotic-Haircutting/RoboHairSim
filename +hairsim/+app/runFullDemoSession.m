@@ -2,76 +2,59 @@ function result = runFullDemoSession(options)
 %RUNFULLDEMOSESSION Plan + run all five scalp regions back to back in one
 %   continuous session: same scene/robot/hair/recording/view state carried
 %   across regions (hair cut by region N is visible when region N+1 plans
-%   and runs), one consolidated recording for the whole demo.
+%   and runs), one consolidated recording for the whole demo. The planner
+%   must be a camClipper-family one (hairsim.planning.camClipperTool).
 %
-%   Between regions the robot moves with the same retreat -> transfer ->
-%   approach connector the post-processor uses inside a region
-%   (hairsim.planning.planSafeConfigurationTransition: clipper model vs the
-%   exact head mesh, links vs the head hull + environment, arm + clipper
-%   self collision on every sample). If a connection is infeasible for a
-%   region pair, that one boundary falls back to a teleport and is flagged
-%   in result.regionResults.bridgeWarning (the demo is not aborted).
+%   options.BasePlacementId selects the base the demo STARTS on:
+%     "fixed"         (default) the adapter's normal fixed mount
+%     "ceiling"       the overhead mount
+%     "rail<deg>"     the rail, starting at that station (e.g. "rail180")
+%     "railPerRegion" the rail, starting at the first region's station in
+%                     regionRailStationDeg (below)
+%   On the rail the planner picks a station for every stroke itself
+%   (hairsim.post.postProcessToolpaths) and the execution engine switches
+%   stations inside a region, so the two rail options only set the start.
+%   Every Home leg on the rail uses the clipper-safe park pose
+%   (hairsim.post.findClipperParkConfiguration) as Home.
 %
-%   options.BasePlacementId selects the base placement for the whole demo:
-%     "fixed"       (default) -- the adapter's normal fixed mount.
-%     "ceiling"     -- the overhead mount, same placement for all regions.
-%     "rail<deg>"   -- one rail station (e.g. "rail180") for all regions.
-%     "railPerRegion" -- each region uses ITS OWN frozen best rail station
-%       from the 2026-09-25 matlab_ur5e rail-placement study (135 deg for
-%       scalp_top_left/scalp_left, 150 for scalp_right, 180 for
-%       scalp_back/scalp_top_right -- see regionRailStationDeg below).
-%       When consecutive regions in options.RegionNames sit at different
-%       stations, the robot folds back to qHome via
-%       hairsim.planning.planSafeConfigurationTransition (the same
-%       region/lane-agnostic retreat -> joint-line/shell-arc -> approach
-%       connector the 2026-09-25 rail study itself used for Home
-%       connections -- direct()'s LIFT/TRANSFER/LOWER assumes scalp-
-%       following geometry on both ends, which Home doesn't have, and was
-%       found NOT reliable for this leg), the rail is animated sliding
-%       station to station in options.RailSlideStepDeg steps (q held at
-%       qHome throughout -- qHome was verified collision-free across the
-%       whole 120-180 deg sweep in that study; a per-step arm self-
-%       collision + robot-vs-head check still runs here as a live sanity
-%       check, not blind trust), then hairsim.app.robot.switchBase
-%       finalizes the new station and the robot unfolds from qHome into
-%       the next region's first stroke via the same
-%       planSafeConfigurationTransition connector. Regions sharing a
-%       station are still bridged arm-to-arm via direct() exactly like the
-%       fixed-base case, no rail motion. For best results with
-%       "railPerRegion", order
-%       options.RegionNames so same-station regions are adjacent (e.g.
-%       group by 135/150/180) -- an order that revisits a station after
-%       leaving it will slide the rail back and forth.
+%   Between regions, all through hairsim.planning.planSafeConfigurationTransition
+%   (retreat -> joint line or head-centred shell arc -> approach, every
+%   sample checked: clipper model vs the exact head mesh, links vs the
+%   head hull + environment, arm + clipper self collision):
+%     same station    the last pose of the previous region straight to the
+%                     first pose of the next;
+%     other station   fold to Home, slide the rail in
+%                     options.RailSlideStepDeg steps with the arm held at
+%                     Home (each step re-checked: arm self collision, links
+%                     vs head/environment), hairsim.app.robot.switchBase,
+%                     unfold to the next region's first pose.
+%   The first region starts at its first pose directly (or after a slide
+%   if its first stroke is on another station). An infeasible connection
+%   falls back to a teleport and a failed slide check only warns; both
+%   are reported in result.regionResults.bridgeWarning and do not stop the
+%   demo. A region whose plan is not executable is skipped (executable =
+%   false in result.regionResults).
 %
-%   A region whose plan comes back not executable is skipped (recorded in
-%   result.regionResults with executable=false) rather than aborting the
-%   whole demo; the bridge into the NEXT executable region then starts
-%   from wherever the robot last actually was.
+%   After the last region the arm returns to Home through the same
+%   connector, and hair/debris physics keeps stepping (arm held, no
+%   cutting) until the clippings have landed, at most 300 extra ticks.
 %
-%   After the last region, the robot returns to Home (the same
-%   planSafeConfigurationTransition connector used for every other Home
-%   leg) and the demo keeps stepping hair/debris physics, arm held at
-%   Home, until the debris list is empty (capped at 300 extra ticks) --
-%   otherwise the demo would simply stop mid-stroke with the arm still
-%   over the head and the last cut's hair clippings still airborne.
-%
-%   Every tick (region-execution replay sample, cross-region bridge
-%   sample, rail-fold/slide/unfold sample) passes through the one
-%   applyAndRecordTick choke point, which -- in addition to its existing
-%   job -- appends {qCandidate, railThetaRad, basePlacementId, cutFlag,
-%   statusLabel} to a flat, ordered bundle. This bundle is EVERYTHING
-%   needed to replay the whole demo with zero planning/IK calls (see
-%   hairsim.app.replayFullDemoBundle): it is returned as result.bundle and,
-%   if options.SaveBundlePath is non-empty, also saved there as a .mat
-%   (variable name 'bundle') together with the adapter/data-dir metadata
-%   needed to rebuild the scene for a later replay.
+%   Every tick (stroke, transit, fold/slide/unfold sample) passes through
+%   applyAndRecordTick, which also appends {qCandidate, railThetaRad,
+%   basePlacementId, cutFlag, statusLabel, lengthGoal} to an ordered
+%   bundle: everything needed to replay the whole demo with no planning
+%   or IK (hairsim.app.replayFullDemoBundle). It is returned as
+%   result.bundle and, if options.SaveBundlePath is set, saved there as a
+%   .mat (variable 'bundle') with the adapter / data-folder metadata the
+%   replay needs.
 %
 %   result fields: regionResults (1xN struct: regionName, executable,
 %   message, numChainedStrokes, bridgeWarning, removedNodeCount,
-%   coverageScalpPct/SafePct/ExecPct/ChainPct -- the last four straight
-%   from regionPlan.coverage, nan for a skipped region), recordingResult,
-%   numTicks, numCutTicks, bundle, hairAppState, scene (ready to feed into
-%   hairsim.app.renderMultiAngleSnapshot for a result image), statsDir (the
+%   coverageScalpPct, coverageSafePct, coverageExecPct, coverageChainPct --
+%   from regionPlan.coverage; for the camClipper planners the first two are
+%   both the task coverage C_task, then C_exec and C_chain; nan for a
+%   skipped region), recordingResult, numTicks, numCutTicks, bundle,
+%   hairAppState and scene (the final hair state and scene), statsDir (the
 %   run's output folder, where demo_region_stats.csv and demo_stats.json
 %   -- the same regionResults plus recordingResult.metrics -- are written
 %   alongside the usual metrics.json/summary.txt).
@@ -151,7 +134,7 @@ planningState = hairsim.app.planning.createAutoPlanningState(configDir);
 
 viewState = [];
 if options.ShowScene
-    fig = figure('Name', 'HairSimApp: full demo (all regions)', 'Color', 'w');
+    fig = figure('Name', 'HairSim: full demo (all regions)', 'Color', 'w');
     ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0.06, 0.08, 0.88, 0.86]);
     hairsim.hideAxesToolbar(ax);
     axis(ax, 'equal');
@@ -359,11 +342,10 @@ end
 % =========================================================================
 
 function stationDeg = regionRailStationDeg(regionName)
-%REGIONRAILSTATIONDEG Frozen per-region best rail station from the
-%   2026-09-25 matlab_ur5e rail-placement study (region-wise 50/50
-%   executable, C_chain,rail ~60.2 %; stations 135/150/180). Not
-%   re-derived here -- this is the study's own locked result, ported as
-%   data only.
+%REGIONRAILSTATIONDEG Start station of "railPerRegion": a fixed rail
+%   station per region (135/150/180 deg), kept from an early rail-placement
+%   study of the previous planner. It only sets where the demo starts; the
+%   camClipper planner chooses the station of every stroke itself.
 switch regionName
     case {"scalp_top_left", "scalp_left"}
         stationDeg = 135;
@@ -440,15 +422,13 @@ function [robotAppState, hairAppState, recordingState, numTicks, bundle, warning
         qBeforeFold, previousBridgeLabel, targetBasePlacementId, stepDeg)
 %FOLDSLIDEUNFOLD Physically move the rail from the current station to
 %   targetBasePlacementId's station: (1) connect qBeforeFold (the last
-%   pose of the previous region's chain) to qHome at the CURRENT station
-%   via hairsim.planning.planSafeConfigurationTransition -- the same
-%   generic, region/lane-agnostic retreat -> joint-line/shell-arc ->
-%   approach connector, (2) animate the rail
+%   pose of the previous region's chain) to qHome (the clipper-safe park
+%   pose on the rail) at the CURRENT station via
+%   hairsim.planning.planSafeConfigurationTransition, (2) animate the rail
 %   sliding station to station with q held at qHome
 %   (hairsim.app.robot.applyRailStationForReplay rebuilds the robot model
-%   at each intermediate theta; a live arm self-collision + robot-vs-head
-%   check runs every step as a sanity check on the study's own "qHome is
-%   collision-free across the swept range" finding, not blind trust), (3)
+%   at each intermediate theta; arm self collision and links vs
+%   head/environment are re-checked at every step), (3)
 %   hairsim.app.robot.switchBase finalizes the new station officially.
 %   warningText is non-empty if the fold connection was infeasible (falls
 %   back to a teleport to qHome) or a slide step failed its sanity check

@@ -5,8 +5,8 @@ function registerRobotAdapter(name, builderFn)
 %   builderFn is a zero-argument function handle returning a raw adapter
 %   spec struct -- the contract a new robot must satisfy to plug into
 %   hairsim.robot.createRobotAdapter. See +hairsim/+robot/+adapters/ur5e.m
-%   for the reference implementation and docs/EXTENDING.md for the full
-%   field-by-field contract. Briefly, the returned struct has fields:
+%   for the reference implementation ("Add a robot" in README.md shows
+%   the registration). The returned struct has fields:
 %     name              (1,1) string, e.g. "ur5e"
 %     loadRobotName     (1,1) string, passed to loadrobot()
 %     endEffector       (1,1) string, end-effector body name
@@ -17,8 +17,8 @@ function registerRobotAdapter(name, builderFn)
 %                       the robot's own homeConfiguration and re-solves a
 %                       safe Home via IK -- always correct, just slower on
 %                       first use; see createRobotAdapter.m)
-%     qHomeCeiling      (:,1) double, a pre-tuned Home for the ceiling-mount
-%                       study, or zeros(0,1) if none exists yet (same
+%     qHomeCeiling      (:,1) double, a pre-tuned Home for the ceiling
+%                       mount, or zeros(0,1) if none exists yet (same
 %                       fallback behavior as qHomeConstant)
 %
 %   Built-in adapters ("ur5e", "gen3") are registered automatically the

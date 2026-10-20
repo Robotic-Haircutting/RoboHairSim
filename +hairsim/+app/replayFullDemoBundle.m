@@ -23,8 +23,7 @@ function result = replayFullDemoBundle(bundleOrPath, options)
 %   result fields: recordingResult, numTicks, numCutTicks (same shape as
 %   hairsim.app.runFullDemoSession's result, minus regionResults/bundle,
 %   since a pure replay has no per-region planning outcomes of its own),
-%   hairAppState, scene -- the final hair state and scene, ready to feed
-%   straight into hairsim.app.renderMultiAngleSnapshot for a result image.
+%   hairAppState, scene -- the final hair state and scene.
 
 arguments
     bundleOrPath
@@ -120,7 +119,7 @@ regionNames = containers.Map( ...
 viewState = [];
 captionHandle = [];
 if options.ShowScene
-    fig = figure('Name', 'HairSimApp: full demo replay (bundle, no planning)', 'Color', 'w');
+    fig = figure('Name', 'HairSim: full demo replay (bundle, no planning)', 'Color', 'w');
     ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0.06, 0.08, 0.88, 0.86]);
     hairsim.hideAxesToolbar(ax);
     axis(ax, 'equal');

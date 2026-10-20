@@ -2,7 +2,7 @@ function appState = applyRailStationForReplay(appState, railThetaRad)
 %APPLYRAILSTATIONFORREPLAY Swap ONLY robot/headCollision to the rail
 %   station railThetaRad, for replaying a rail-slide plan segment that was
 %   planned/validated at a DIFFERENT station than the one currently
-%   selected. Ported from run_robot_haircut.m's setRobotStationForReplay.
+%   selected.
 %
 %   Unlike hairsim.app.robot.switchBase, this never touches
 %   qHome/qCurrent/qCommanded/basePlacementId -- a replay is already

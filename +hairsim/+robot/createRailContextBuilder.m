@@ -14,10 +14,10 @@ function builder = createRailContextBuilder(adapter, headScene, options)
 %
 %   options.RadiusM (default 0.60), options.BaseOffsetM (default
 %   [0, 0, -0.04], added to the head origin to get the rail's vertical
-%   axis) match the values matlab_ur5e's rail-placement study settled on.
+%   axis) are the rail geometry used in all experiments.
 %
 %   The returned closure is pure (never mutates adapter/headScene) and
-%   safe to call speculatively during planning, exactly like the original.
+%   safe to call speculatively during planning.
 
 arguments
     adapter (1, 1) struct

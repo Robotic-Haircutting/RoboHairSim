@@ -149,7 +149,7 @@ result.planningTimeS = toc(timer);
 end
 
 function [ok, why] = gates(q, qPrev, ctx, gp)
-%GATES The planner's path gates for one configuration (see planAutonomousRegionHaircut/validatePlannedPath).
+%GATES The path gates for one configuration, the same as for a cutting sample.
 ok = false; why = "";
 if ~all(isfinite(q))
     why = "non-finite joint values"; return;

@@ -512,7 +512,16 @@ for l = 1:numel(legs)
         legLengths(l) = 0;
         continue;
     end
-    res = hairsim.planning.planSafeConfigurationTransition(qa, qb, sctx);
+    % a leg depends only on its two ends and the station: the same leg
+    % (e.g. into / out of the park pose, or tried again by the next route
+    % or the recovery passes) is planned once per station context
+    key = [reshape(num2hex([qa(:); qb(:)]), 1, []), '|', reshape(num2hex(tool.safetyClearanceM), 1, [])];
+    if isKey(sctx.legCache, key)
+        res = sctx.legCache(key);
+    else
+        res = hairsim.planning.planSafeConfigurationTransition(qa, qb, sctx);
+        sctx.legCache(key) = res;
+    end
     if ~res.feasible
         ok = false;
         reason = "TRANSIT_" + string(res.reason);

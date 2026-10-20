@@ -32,15 +32,23 @@ arguments
     options.RandomSeedValue (1, 1) double = 12345
     options.RedundantJointIndices (1, :) double {mustBeInteger, mustBePositive} = [1, 3, 5, 7]
     options.InitialSeedConfiguration (:, 1) double = hairsim.motion.createInitialClipperJointConfiguration()
+    % PositionLimits of the revolute joints in body order
+    % (hairsim.motion.revoluteJointLimits(robot)); pass it when calling
+    % repeatedly for one robot: every robot.Bodies read copies the whole tree
+    options.RevoluteJointLimits double = zeros(0, 2)
 end
 
+limits = options.RevoluteJointLimits;
+if isempty(limits)
+    limits = hairsim.motion.revoluteJointLimits(robot);
+end
 if isequal(size(options.BaseRotationWorldEe), [3, 3])
     baseRotationWorldEe = options.BaseRotationWorldEe;
 else
     baseRotationWorldEe = hairsim.createHeadFacingRotation(toolTipWorldM, headCenterWorldM);
 end
 seedConfigurations = createIkSeedConfigurations( ...
-    robot, qCurrent, options.SeedConfigurations, ...
+    limits, qCurrent, options.SeedConfigurations, ...
     options.IncludeHomeSeed, options.IncludeInitialSeed, ...
     options.IncludeRedundantSeeds, options.RandomSeedCount, options.RandomSeedValue, ...
     options.RedundantJointIndices, options.InitialSeedConfiguration);
@@ -53,7 +61,7 @@ for rollIdx = 1:numel(options.RollAnglesRad)
         toolTipWorldM, R_world_ee, T_ee_tool);
     for seedIdx = 1:size(seedConfigurations, 2)
         candidateLog(end + 1) = solveOneCandidate( ...
-            robot, ik, endEffector, weights, seedConfigurations(:, seedIdx), ...
+            robot, limits, ik, endEffector, weights, seedConfigurations(:, seedIdx), ...
             qCurrent, T_target, T_ee_tool, toolTipWorldM, rollAngleRad, ...
             seedIdx, maxToolTipErrorM, options.JointStepWeight, ...
             options.OrientationWeight, options.ApproachAxisWeight, ...
@@ -78,7 +86,7 @@ toolTipErrorM = candidateLog(1).toolTipErrorM;
 solved = candidateLog(1).solved;
 end
 
-function candidate = solveOneCandidate(robot, ik, endEffector, weights, seed, ...
+function candidate = solveOneCandidate(robot, limits, ik, endEffector, weights, seed, ...
         qCurrent, T_target, T_ee_tool, toolTipWorldM, rollAngleRad, seedIdx, ...
         maxToolTipErrorM, jointStepWeight, orientationWeight, approachAxisWeight, ...
         forwardAxisWeight, baseRotationWorldEe, headCollisionForIk, collisionMarginMForIk)
@@ -93,7 +101,7 @@ catch
     qSolution = nan(size(qCurrent));
 end
 qSolution = qSolution(:);
-qSolution = normalizeJointConfigurationNearReference(robot, qSolution, qCurrent(:));
+qSolution = normalizeJointConfigurationNearReference(limits, qSolution, qCurrent(:));
 candidate.q = qSolution;
 
 if ~all(isfinite(qSolution))
@@ -142,7 +150,7 @@ elseif ~candidate.collisionClear
 end
 end
 
-function seedConfigurations = createIkSeedConfigurations(robot, qCurrent, extraSeeds, ...
+function seedConfigurations = createIkSeedConfigurations(limits, qCurrent, extraSeeds, ...
         includeHomeSeed, includeInitialSeed, includeRedundantSeeds, ...
         randomSeedCount, randomSeedValue, redundantJointIndices, initialSeedConfiguration)
 numJoints = numel(qCurrent);
@@ -165,28 +173,22 @@ if includeRedundantSeeds
 end
 if randomSeedCount > 0
     seedConfigurations = [seedConfigurations, ...
-        createRandomJointSeeds(robot, numJoints, randomSeedCount, randomSeedValue)];
+        createRandomJointSeeds(limits, numJoints, randomSeedCount, randomSeedValue)];
 end
-seedConfigurations = wrapAndClampSeeds(robot, seedConfigurations);
+seedConfigurations = wrapAndClampSeeds(limits, seedConfigurations);
 seedConfigurations = uniqueSeedColumns(seedConfigurations);
 end
 
-function seedConfigurations = createRandomJointSeeds(robot, numJoints, count, seedValue)
+function seedConfigurations = createRandomJointSeeds(jointLimits, numJoints, count, seedValue)
 % Dispersed joint-space seeds sampled from an independent RandStream (does
 % not touch the global rng state used elsewhere, e.g. hairstyle generation).
 seedConfigurations = zeros(numJoints, count);
 stream = RandStream('mt19937ar', 'Seed', seedValue);
-jointIdx = 0;
-for bodyIdx = 1:robot.NumBodies
-    joint = robot.Bodies{bodyIdx}.Joint;
-    if ~strcmp(joint.Type, 'revolute')
-        continue;
-    end
-    jointIdx = jointIdx + 1;
+for jointIdx = 1:size(jointLimits, 1)
     if jointIdx > numJoints
         break;
     end
-    limits = joint.PositionLimits;
+    limits = jointLimits(jointIdx, :);
     if all(isfinite(limits))
         seedConfigurations(jointIdx, :) = limits(1) + ...
             (limits(2) - limits(1)) * rand(stream, 1, count);
@@ -196,20 +198,14 @@ for bodyIdx = 1:robot.NumBodies
 end
 end
 
-function qNear = normalizeJointConfigurationNearReference(robot, qRaw, qReference)
+function qNear = normalizeJointConfigurationNearReference(jointLimits, qRaw, qReference)
 qNear = qRaw(:);
-jointIdx = 0;
-for bodyIdx = 1:robot.NumBodies
-    joint = robot.Bodies{bodyIdx}.Joint;
-    if ~strcmp(joint.Type, 'revolute')
-        continue;
-    end
-    jointIdx = jointIdx + 1;
+for jointIdx = 1:size(jointLimits, 1)
     if jointIdx > numel(qNear)
         break;
     end
     qNear(jointIdx) = chooseEquivalentJointAngleNearReference( ...
-        qNear(jointIdx), qReference(jointIdx), joint.PositionLimits);
+        qNear(jointIdx), qReference(jointIdx), jointLimits(jointIdx, :));
 end
 end
 
@@ -247,16 +243,10 @@ for jointIdx = redundantJoints
 end
 end
 
-function seeds = wrapAndClampSeeds(robot, seeds)
+function seeds = wrapAndClampSeeds(jointLimits, seeds)
 seeds = wrapToPi(seeds);
-finiteJointIdx = 0;
-for bodyIdx = 1:robot.NumBodies
-    joint = robot.Bodies{bodyIdx}.Joint;
-    if ~strcmp(joint.Type, 'revolute')
-        continue;
-    end
-    finiteJointIdx = finiteJointIdx + 1;
-    limits = joint.PositionLimits;
+for finiteJointIdx = 1:size(jointLimits, 1)
+    limits = jointLimits(finiteJointIdx, :);
     if all(isfinite(limits))
         seeds(finiteJointIdx, :) = min(max(seeds(finiteJointIdx, :), limits(1)), limits(2));
     end

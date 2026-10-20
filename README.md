@@ -1,65 +1,92 @@
-# HairSimApp
+# HairSim
 
-A MATLAB simulation of a robot cutting hair with an electric clipper. A UR5e
-arm (a Kinova Gen3 adapter is included) on a circular floor rail holds a hair
-clipper. Strands are modelled as guide hairs on a scanned head. The robot can
-cut by itself (**Auto**) or be driven by keyboard (**Teleop**).
+**HairSim is a MATLAB-based simulation platform for robotic haircutting
+research.** It integrates head and hair modeling, directional clipper cutting,
+toolpath planning, and robot execution in an interactive environment. The
+platform supports automated haircutting, keyboard teleoperation, and session
+replay, and provides interfaces for researchers to develop custom planners,
+integrate robot models, and explore haircutting strategies.
 
-The planner works the way CNC machining software does:
+A robot arm (UR5e by default, Kinova Gen3 included) holds an electric clipper
+next to a scanned head. Hair is modelled as guide strands rooted on the scalp.
+The arm can be mounted on a fixed base, on the ceiling, or on a circular floor
+rail around the head.
 
-1. **CAM toolpaths** (`+hairsim/+cam`). For each scalp region, the clipper
-   passes are generated from scratch. They are parallel passes, each pushed
-   *against* the local hair flow, cut into 4 cm segments. Where the blade
-   does not fit, rest machining and edge cuts fill in (an offset or rolled
-   blade).
-2. **Robot post-processing** (`+hairsim/+post`). Every segment becomes a joint
-   trajectory. This step searches rail stations, splits segments that are
-   only partly reachable, and checks IK, collisions and clipper clearance on
-   every sample. It then links the strokes into one chain with safe transits
-   and rail slides.
-3. **Evaluation** (`+hairsim/+eval`). One coverage rule decides whether a
-   strand is cut. A strand counts as covered when its root lies under the
-   clipper's comb, the blade is close enough to the scalp, and the feed runs
-   within 45° of against the hair flow. Coverage is reported twice: **A**
-   uses the ideal CAM poses and **B** uses the poses the robot actually
-   reaches. The loss between A and B is broken down by cause.
-4. **Cutting.** When a plan runs, or in Teleop, the hair is cut by the same
-   rule (the comb-lift cut model, `+hairsim/+hair/+cutting`). A strand is
-   cut to the target length exactly when the evaluation says it is covered.
+## Demo
 
-## Requirements
+<!-- TODO: add media under docs/media/ and link it here -->
+
+| Automated haircut | Keyboard teleoperation | Before / after |
+|---|---|---|
+| *(GIF: `runFullDemo`, all five regions)* | *(GIF: `runTeleop`)* | *(screenshots)* |
+
+## Features
+
+- **Scanned head and scalp regions.** A head mesh with hair roots sampled on
+  the scalp, each root assigned to one of five regions (`scalp_top_left`,
+  `scalp_top_right`, `scalp_left`, `scalp_right`, `scalp_back`).
+- **Guide-hair model with live display.** Strands follow a hair-flow field,
+  respond to gravity and contact, and fall as clippings when cut.
+- **Directional clipper cutting.** A strand is cut to the target (guard-comb)
+  length only when its root passes under the clipper comb, the blade is close
+  enough to the scalp, and the feed runs against the hair flow.
+- **Automatic toolpath planning.** CAM-style clipper passes per region,
+  pushed against the local hair flow, with rest machining and edge cuts where
+  the blade does not fit.
+- **Robot constraint checking.** Every sample of every stroke is checked for
+  IK feasibility, robot-vs-head collision, self-collision and clipper
+  clearance. Strokes are linked into one chain with safe transits and rail
+  slides.
+- **Recording and replay.** Runs are recorded (joint samples, clipper path,
+  cut events) and a full-head session can be saved as a bundle and replayed
+  without re-planning.
+
+## Installation and quick start
+
+### Requirements
 
 - MATLAB R2025b (developed and tested there)
 - Robotics System Toolbox
 
-## Quick start
+### Launch
 
 From the app folder:
 
 ```matlab
-runAuto            % plan one region, preview, run, record
-runTeleop          % drive the clipper with the keyboard
-result = runFullDemo('BasePlacementId', "rail180", 'TargetLengthM', 0.005, ...
-    'SaveBundlePath', "outputs/fullhead_bundle.mat");   % all five regions, one session
-result = replayBundle("outputs/fullhead_bundle.mat");   % replay a saved demo, no planning
+runAuto       % plan a region, preview, run, record
+runTeleop     % drive the clipper with the keyboard
 ```
 
-Each launcher first calls `setupPath`. `setupPath` puts this copy of the
-`+hairsim` package, and no other copy, on the MATLAB path. The current folder
-takes precedence over the path, so don't run the launchers from inside
-another copy's folder.
+Each launcher first calls `setupPath`, which puts this copy of the `+hairsim`
+package, and no other copy, on the MATLAB path. Don't run the launchers from
+inside another copy's folder: the current folder takes precedence over the
+path.
+
+### Your first haircut
+
+1. Run `runAuto`.
+2. Keep the default robot setup, region and target length.
+3. Press **Plan**. Planning a region takes several minutes; the plan is then
+   cached in `config/plans` and reused next time.
+4. Press **Preview** to see the strokes, then **Run** to execute them on the
+   robot and watch the hair being cut.
+
+## Usage
 
 ### Auto
 
-1. Choose a **Robot Setup**: fixed, ceiling, or a rail station.
-2. Choose a region and a target length, which is the guard-comb length.
-   Planning a region takes several minutes. Plans are cached in
-   `config/plans`.
-3. Press **Plan**. When it finishes, **Preview** draws the strokes and
-   **Run** executes them on the robot.
+Interactive planning and execution of one scalp region.
 
-During planning the rail station is chosen for each stroke, so the base
-moves during a run when it has to.
+1. Choose a **Robot Setup**: fixed, ceiling, or a rail station.
+2. Choose a **region** and a **target length** (the guard-comb length left
+   on the head).
+3. **Plan**, then **Preview** and **Run**.
+
+When the rail is used, the station is chosen per stroke, so the base moves
+during a run when it has to.
+
+`runAuto` also takes name–value options, e.g.
+`runAuto('AdapterName', "gen3", 'RegionName', "scalp_back", 'TargetLengthM', 0.01)`.
 
 ### Teleop
 
@@ -77,57 +104,183 @@ Click the 3D view first. The clipper rides on the scalp.
 | hold Space | cut |
 
 Poses are built and checked with the same code the planner uses. A move that
-would hit the head or self-collide is refused, and the readout shows why.
-The readout also shows the height above the scalp, whether the blade is
-touching, and the feed angle against the flow. Recording is optional: cutting
-works without it.
+would hit the head or self-collide is refused, and the readout shows why. The
+readout also shows the height above the scalp, whether the blade is touching,
+and the feed angle against the flow. Recording is optional: cutting works
+without it.
 
-## Tests
+### Full-head task
+
+Plans and runs all five regions in one continuous session; hair cut in one
+region stays cut when the next region is planned.
 
 ```matlab
-runReleaseTests              % about 15 min
+result = runFullDemo('BasePlacementId', "rail180", 'TargetLengthM', 0.005, ...
+    'SaveBundlePath', "outputs/fullhead_bundle.mat");
+```
+
+`BasePlacementId` is `"fixed"` (default), `"ceiling"`, `"rail<deg>"` (one
+rail station for every region, e.g. `"rail180"`), or `"railPerRegion"` (each
+region at its own station, with the rail sliding between them). See
+`help hairsim.app.runFullDemoSession` for all options.
+
+### Replay
+
+```matlab
+result = replayBundle("outputs/fullhead_bundle.mat");   % no planning
+```
+
+### Main parameters
+
+| Parameter | Where | Meaning |
+|---|---|---|
+| Robot setup / `BasePlacementId` | Auto, full demo | fixed, ceiling, or rail station |
+| `AdapterName` | all entries | `"ur5e"` (default) or `"gen3"` |
+| Region / `RegionName` | Auto | one of the five scalp regions |
+| Target length / `TargetLengthM` | all entries | guard-comb length in metres |
+| `PlannerName` | all entries | any registered planner (built in: `"camClipperAgainstFlow"`) |
+| `DataDir` | all entries | folder with your own head and hair data |
+
+## Extending HairSim for research
+
+The `hairsim.api` package exposes the whole pipeline without the GUI:
+
+```matlab
+setupPath
+scene   = hairsim.api.loadScene();                      % head, hair, regions
+context = hairsim.api.createRobotContext("ur5e", scene); % robot, IK, collision
+plan    = hairsim.api.planRegion(scene.haircutState, "scalp_back", 0.005, ...
+              context, "camClipperAgainstFlow");
+hairsim.api.executePlan(plan, context);                 % headless replay
+```
+
+### Plug in your own planner
+
+Write a function with the signature
+
+```matlab
+regionPlan = myPlanner(haircutState, regionName, targetLengthM, context, options)
+```
+
+that returns the same `regionPlan` fields as
+`hairsim.planning.camClipperPlanner` (strokes, transits and their joint
+trajectories). Register it once per session:
+
+```matlab
+hairsim.planning.registerRegionPlanner("myPlanner", @myPlanner);
+```
+
+It then appears in the Auto planner list and can be passed as `PlannerName`
+to every entry or to `hairsim.api.planRegion`. You can reuse the building
+blocks of the built-in planner: toolpath generation in `+hairsim/+cam`,
+robot post-processing (IK, collision, transits) in `+hairsim/+post`, and the
+coverage evaluation in `+hairsim/+eval`.
+
+### Add a robot
+
+Write a zero-argument builder that returns an adapter spec (`name`,
+`loadRobotName` for `loadrobot`, `endEffector`, IK `weights`, optional
+pre-tuned Home poses `qHomeConstant` / `qHomeCeiling`) and register it:
+
+```matlab
+hairsim.robot.registerRobotAdapter("myRobot", @myRobotAdapter);
+runAuto('AdapterName', "myRobot")
+```
+
+`+hairsim/+robot/+adapters/ur5e.m` is the reference implementation; see
+`help hairsim.robot.registerRobotAdapter` for the full contract. If no Home
+pose is given, a safe one is solved by IK on first use.
+
+### Use your own head and hair roots
+
+Put a folder with the same three files as `data/` and pass it as `DataDir`:
+
+| File | Contents |
+|---|---|
+| `HeadScan.stl` | head mesh |
+| `hair_roots.json` | one entry per root: `id`, `region`, `triangle_id`, `barycentric`, `position`, `normal`, `density_weight` |
+| `HairClipper.stl` | clipper mesh used for display and collision |
+
+```matlab
+runAuto('DataDir', "/path/to/my_head")
+scene = hairsim.api.loadScene('DataDir', "/path/to/my_head");
+```
+
+### Change the cut model
+
+The cut model is a struct created by
+`hairsim.hair.cutting.createCombLiftCutModel` and dispatched on its `type`
+in `hairsim.hair.cutting.applyClipperHaircutStep`. To try a different cutting
+rule, add a new `type` with its own apply function there. The clipper
+geometry is built by `hairsim.tool.createClipperTool`; the built-in planner
+sets its 45° feed-angle limit (`MaxFeedAngleRad`) in
+`hairsim.planning.camClipperTool`. Keep the planner's coverage predicate
+(`hairsim.eval.sweepCombLiftCoverage`) consistent with the cut model if you
+want planned coverage and executed cuts to agree.
+
+## Project structure
+
+| Folder | Contents |
+|---|---|
+| `+hairsim/+api` | library entry points: load scene, build robot context, plan, execute |
+| `+hairsim/+hair` | hair model, dynamics, rendering, clippings, cut models |
+| `+hairsim/+cam` | toolpaths: machining surface, hair flow, passes, segments, rest machining |
+| `+hairsim/+planning` | planner registry and the built-in camClipper planner |
+| `+hairsim/+post` | robot post-processor: stations, IK, transits, rail slides, park pose |
+| `+hairsim/+tool` | clipper model, signed distance to the head mesh, clearance |
+| `+hairsim/+robot` | robot adapters (UR5e, Gen3), adapter registry, rail |
+| `+hairsim/+execution` | plan execution engine shared by the GUI, the full demo and tests |
+| `+hairsim/+eval` | coverage rule, placement map, ideal-vs-robot comparison |
+| `+hairsim/+app` | interactive Auto and Teleop, full demo, replay, recording, view |
+| `data/` | head scan, hair roots, clipper mesh |
+| `tests/` | release tests |
+
+### Tests
+
+```matlab
+runReleaseTests                  % about 15 min
 runReleaseTests('Quick', true)   % about 3 min, skips the full region plan
 ```
 
 | Test | Checks |
 |---|---|
-| `testCamClipperFoundations` | the clipper model, exact head distance, the coverage rule and the cut on analytic and real geometry |
-| `testTeleopClipper` | headless Teleop on the scalp: clearance ≥ 1 mm; the strands cut are exactly those the coverage rule predicts; pulling back or pushing with the flow cuts nothing; clippings fall while the arm stands still |
+| `testCamClipperFoundations` | clipper model, exact head distance, coverage rule and cut on analytic and real geometry |
+| `testTeleopClipper` | headless Teleop: clearance ≥ 1 mm; strands cut are exactly those the coverage rule predicts; pulling back or pushing with the flow cuts nothing |
 | `testLaunchers` | `runAuto` and `runTeleop` open and close |
-| `testAutoRegion` | plans `scalp_back`, executes the plan headless, and checks that the strands cut are exactly the ones evaluation B predicted |
+| `testAutoRegion` | plans `scalp_back`, executes it headless, and checks the strands cut match the evaluation |
 
-## Layout
+## Model assumptions and current limitations
 
-| Folder | Contents |
-|---|---|
-| `+hairsim/+cam` | toolpaths: machining surface, hair flow, raster, segments, rest machining |
-| `+hairsim/+post` | robot post-processor: stations, IK, transits, rail slides, park pose |
-| `+hairsim/+tool` | clipper model, exact signed distance to the head mesh, contact lift |
-| `+hairsim/+eval` | coverage rule, placement map, ideal-vs-robot comparison |
-| `+hairsim/+planning` | planner registry (`registerRegionPlanner`, `listRegionPlanners`), the camClipper planner |
-| `+hairsim/+robot` | robot adapters (UR5e, Gen3) |
-| `+hairsim/+execution` | plan execution engine, used by the GUI, the full demo and tests |
-| `+hairsim/+hair` | hair model, physics, clippings, cut models |
-| `+hairsim/+app` | the two interactive entries, the full demo, bundle replay, Teleop, view |
-| `data/` | head scan, hair roots, clipper mesh |
-| `tests/` | the release tests above |
+- **Feed-direction threshold.** A strand is cut only when the feed is within
+  45° of against the hair flow. This is a modelling assumption, not a
+  measured value.
+- **Guard comb as logic.** The comb is not simulated geometrically: when the
+  rule above holds, the strand is stood up and cut at the target length.
+  Strands already at or below the target are never touched.
+- **Guide-hair model.** Strands are guide hairs, not a full hair volume. The
+  physics can lift strands at the back and sides off the scalp; coverage uses
+  the roots, so it is unaffected, but the rendered shape is.
+- **Collision scope.** Robot links are checked against a convex hull of the
+  head, the clipper against the exact head mesh, plus self-collision. There
+  is no shoulder or torso model, so front and side rail stations are not
+  checked against the body.
+- **Uniform target length** per run (one guard-comb length for the area
+  being cut).
 
-## Extending
+## Citation, acknowledgements and license
 
-- **Another planner.** Write a function with the signature
-  `regionPlan = f(haircutState, regionName, targetLengthM, context, options)`
-  that returns the same `regionPlan` fields as
-  `hairsim.planning.camClipperPlanner`. Register it with
-  `hairsim.planning.registerRegionPlanner("name", @f)`. It then appears in
-  the Auto planner list.
-- **Another robot.** Add an adapter next to `+hairsim/+robot/+adapters`.
-- **Your own head.** Pass `'DataDir'` to `hairsim.api.loadScene` (and to the
-  entries) pointing at a folder with the same three files as `data/`.
+**Citation.** A paper describing HairSim is in preparation. Until then,
+please cite this repository:
 
-## Known limitations
+```bibtex
+@misc{hairsim,
+  title  = {HairSim: A Simulation Platform for Robotic Haircutting},
+  note   = {https://github.com/<org>/HairSim},
+  year   = {2026}
+}
+```
 
-- The 45° feed-angle rule is a modelling assumption, not a measured value.
-- Hair physics can lift strands at the back and sides off the scalp. Coverage
-  uses the roots, so it is not affected, but the rendered shape is.
-- Front and side rail stations are not checked against the shoulders or
-  torso. There is no body model.
+**Acknowledgements.** *(to be added)*
+
+**License.** *(to be decided.)* The code license and the terms for the head
+scan and hair-root data in `data/` will be stated here.

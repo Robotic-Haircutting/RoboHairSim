@@ -90,11 +90,11 @@ if ~okB
 end
 
 % ---- retreat from both ends
-[QA, reasonA, detailA] = retreatPath(qa, ctx, gp);
+[QA, reasonA, detailA] = cachedRetreatPath(qa, ctx, gp);
 if reasonA ~= "OK"
     result = fail(result, "START_RETREAT_" + reasonA, detailA, timer); return;
 end
-[QB, reasonB, detailB] = retreatPath(qb, ctx, gp);
+[QB, reasonB, detailB] = cachedRetreatPath(qb, ctx, gp);
 if reasonB ~= "OK"
     result = fail(result, "GOAL_APPROACH_" + reasonB, detailB, timer); return;
 end
@@ -175,15 +175,25 @@ end
 function [q, reason, detail] = solveStep(qPrev, tipTargetM, R, ctx, gp)
 %SOLVESTEP One free-space IK step seeded only by qPrev. reason: "" (ok), "IK", "COLLISION".
 q = []; reason = "IK"; detail = "";
-ik = inverseKinematics('RigidBodyTree', ctx.robot);
-ik.SolverParameters.AllowRandomRestart = false;
+if isfield(ctx, 'transitionIk')
+    % built by hairsim.post.createStationContext for this same ctx.robot
+    % (constructing a solver costs about 30 IK solves)
+    ik = ctx.transitionIk;
+else
+    ik = inverseKinematics('RigidBodyTree', ctx.robot);
+    ik.SolverParameters.AllowRandomRestart = false;
+end
+limitsArg = {};
+if isfield(ctx, 'revoluteJointLimits')
+    limitsArg = {'RevoluteJointLimits', ctx.revoluteJointLimits};
+end
 [~, ~, ~, ~, log] = hairsim.motion.solveRobotForClipperTip( ...
     ctx.robot, ik, ctx.endEffector, gp.ikWeights, qPrev, tipTargetM, ctx.headCenterWorldM, ...
     ctx.tool.T_ee_tcp, gp.maxToolTipErrorM, ...
     'RollAnglesRad', 0, 'BaseRotationWorldEe', R, ...
     'IncludeHomeSeed', false, 'IncludeInitialSeed', false, 'IncludeRedundantSeeds', false, ...
     'RandomSeedCount', 0, 'RedundantJointIndices', 1:numel(qPrev), 'InitialSeedConfiguration', qPrev, ...
-    'HeadCollisionForIk', ctx.collisionObjects, 'CollisionMarginMForIk', gp.collisionMarginM);
+    'HeadCollisionForIk', ctx.collisionObjects, 'CollisionMarginMForIk', gp.collisionMarginM, limitsArg{:});
 bestStep = inf; nSolved = 0; why = "";
 for i = 1:numel(log)
     if ~log(i).solved, continue; end
@@ -210,6 +220,26 @@ elseif nSolved > 0
 else
     reason = "IK"; detail = "no IK solution within tolerance";
 end
+end
+
+function [Q, reason, detail] = cachedRetreatPath(q0, ctx, gp)
+%CACHEDRETREATPATH retreatPath, memoised in ctx.retreatCache (a handle, one
+%   per station context) when the context has one. The retreat depends only
+%   on q0, the station and the gate parameters, so a cached path is exactly
+%   the one a fresh call would compute.
+if ~isfield(ctx, 'retreatCache')
+    [Q, reason, detail] = retreatPath(q0, ctx, gp);
+    return;
+end
+key = [reshape(num2hex(q0(:)), 1, []), '|', reshape(num2hex([gp.clearM, gp.stepM, gp.maxRetreatM, ...
+    gp.maxRetreatDqRad, gp.maxJointStepRad, gp.collisionMarginM, gp.maxToolTipErrorM, gp.ikWeights]), 1, [])];
+if isKey(ctx.retreatCache, key)
+    hit = ctx.retreatCache(key);
+    [Q, reason, detail] = hit{:};
+    return;
+end
+[Q, reason, detail] = retreatPath(q0, ctx, gp);
+ctx.retreatCache(key) = {Q, reason, detail};
 end
 
 function [Q, reason, detail] = retreatPath(q0, ctx, gp)

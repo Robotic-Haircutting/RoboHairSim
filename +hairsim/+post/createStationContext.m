@@ -36,4 +36,11 @@ sctx.armOnlyRobot = built.robot;
 sctx.armWithToolRobot = hairsim.tool.createArmWithClipperBody(built.robot, baseCtx.endEffector, tool, baseCtx.qHome);
 sctx.ik = inverseKinematics('RigidBodyTree', sctx.robot);
 sctx.ik.SolverParameters.AllowRandomRestart = false;
+% reused by hairsim.planning.planSafeConfigurationTransition for this
+% station, with a cache of its retreat paths (deterministic per start q)
+sctx.transitionIk = sctx.ik;
+sctx.revoluteJointLimits = hairsim.motion.revoluteJointLimits(sctx.robot);
+sctx.retreatCache = containers.Map('KeyType', 'char', 'ValueType', 'any');
+% whole transition legs of hairsim.post.postProcessToolpaths (same tool)
+sctx.legCache = containers.Map('KeyType', 'char', 'ValueType', 'any');
 end

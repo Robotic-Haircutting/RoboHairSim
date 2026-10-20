@@ -32,8 +32,8 @@ function result = runFullDemoSession(options)
 %   if its first stroke is on another station). An infeasible connection
 %   falls back to a teleport and a failed slide check only warns; both
 %   are reported in result.regionResults.bridgeWarning and do not stop the
-%   demo. A region whose plan is not executable is skipped (executable =
-%   false in result.regionResults).
+%   demo. A region whose plan is not executable, or has no stroke in its
+%   chain, is skipped (executable = false in result.regionResults).
 %
 %   After the last region the arm returns to Home through the same
 %   connector, and hair/debris physics keeps stepping (arm held, no
@@ -184,7 +184,7 @@ for regionName = options.RegionNames
     [planningState, planResult] = hairsim.app.planning.planHaircut(planningState, planRequest);
     regionPlan = planResult.regionPlan;
 
-    if ~regionPlan.executable
+    if ~regionPlan.executable || isempty(regionPlan.chainStrokeIdx)
         warning("hairsim:FullDemoRegionNotExecutable", "%s: %s", regionName, regionPlan.message);
         regionResults(end + 1) = struct('regionName', regionName, 'executable', false, ...
             'message', regionPlan.message, 'numChainedStrokes', 0, 'bridgeWarning', bridgeWarning, ...

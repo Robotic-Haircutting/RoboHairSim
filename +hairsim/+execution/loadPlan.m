@@ -9,7 +9,8 @@ function [executionState, firstStroke] = loadPlan(regionPlan)
 %   chain: the setup jump happens once, before the run, never between
 %   segments) before calling startRun.
 %
-%   Errors if regionPlan is not executable.
+%   Errors if regionPlan is not executable or its chain is empty (strokes
+%   executable, but none connected to the park pose).
 
 arguments
     regionPlan (1, 1) struct
@@ -19,8 +20,12 @@ if ~regionPlan.executable
         "The plan has no executable stroke; it cannot be loaded for execution.");
 end
 
-queue = struct('kind', {}, 'index', {});
 chain = regionPlan.chainStrokeIdx;
+if isempty(chain)
+    error("hairsim:RegionPlanEmptyChain", ...
+        "The plan has executable strokes but none in the chain; it cannot be run.");
+end
+queue = struct('kind', {}, 'index', {});
 for chainPos = 1:numel(chain)
     if chainPos > 1
         transitIdx = find([regionPlan.transits.fromStroke] == chain(chainPos - 1) & ...

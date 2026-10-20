@@ -5,6 +5,7 @@ outputs/
 *.log
 *.asv
 .DS_Store
+__pycache__/
 
 # Plan caches written by the interactive entries (config/plans/<len>/<method>/<region>.mat)
 config/plans/

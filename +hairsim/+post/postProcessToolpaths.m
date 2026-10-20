@@ -581,11 +581,14 @@ regionPlan.qStartAtPlan = baseCtx.qHome;
 regionPlan.runStrokeIdx = nan;
 regionPlan.laneIdx = nan;
 regionPlan.planResult = [];
-if regionPlan.executable
+if regionPlan.executable && ~isempty(chain)
     regionPlan.runStrokeIdx = chain(1);
     regionPlan.laneIdx = chain(1);
     regionPlan.planResult = strokes(chain(1)).planResult;
     regionPlan.message = sprintf("%d strokes executable, %d in the chain.", numel(strokes), numel(chain));
+elseif regionPlan.executable
+    % executable strokes, but none can be connected to the park pose
+    regionPlan.message = sprintf("%d strokes executable, none in the chain.", numel(strokes));
 else
     regionPlan.message = "No executable stroke.";
 end

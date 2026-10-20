@@ -232,7 +232,7 @@ end
 % Run / Pause / Resume / Abort -- execution only, never recording
 
     function onRun(~, ~)
-        if session.phase ~= "planReady" || isempty(planningState.lastPlan) || ~planningState.lastPlan.executable
+        if session.phase ~= "planReady" || isempty(planningState.lastPlan) || ~isRunnable(planningState.lastPlan)
             return;
         end
         [executionState, firstStroke] = hairsim.execution.loadPlan(planningState.lastPlan);
@@ -364,7 +364,7 @@ end
             ui.auto.plannerPopup, ui.auto.planButton], 'Enable', onOff(editable));
         hasPlan = phase == "planReady" && ~isempty(planningState.lastPlan);
         set([ui.auto.previewButton, ui.auto.saveButton], 'Enable', onOff(hasPlan));
-        set(ui.auto.runButton, 'Enable', onOff(hasPlan && planningState.lastPlan.executable));
+        set(ui.auto.runButton, 'Enable', onOff(hasPlan && isRunnable(planningState.lastPlan)));
         set(ui.auto.pauseButton, 'Enable', onOff(phase == "executing"), 'Visible', onOff(phase ~= "paused"));
         set(ui.auto.resumeButton, 'Enable', onOff(phase == "paused"), 'Visible', onOff(phase == "paused"));
         set(ui.auto.abortButton, 'Enable', onOff(ismember(phase, ["executing", "paused"])));
@@ -394,6 +394,11 @@ end
         end
         session.isRunning = false;
     end
+end
+
+function tf = isRunnable(regionPlan)
+% executable strokes AND at least one in the chain (hairsim.execution.loadPlan)
+tf = regionPlan.executable && ~isempty(regionPlan.chainStrokeIdx);
 end
 
 function tf = isCamClipperPlan(regionPlan)

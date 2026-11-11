@@ -14,7 +14,7 @@ arguments
 end
 
 config = struct();
-config.project = "HairSim";
+config.project = "RoboHairSim";
 config.stage = "robot_haircut_teleop_auto";
 config.mode = options.Mode;
 config.runId = runPaths.runId;

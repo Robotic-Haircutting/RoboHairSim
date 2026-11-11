@@ -28,7 +28,7 @@ function closeWhenReady(tm, ~)
 % window open forever
 try
     figs = findall(groot, 'Type', 'figure');
-    figs = figs(startsWith(string(get(figs, 'Name')), "HairSim"));
+    figs = figs(startsWith(string(get(figs, 'Name')), "RoboHairSim"));
     if isempty(figs)
         return;
     end

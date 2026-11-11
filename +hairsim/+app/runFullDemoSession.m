@@ -134,7 +134,7 @@ planningState = hairsim.app.planning.createAutoPlanningState(configDir);
 
 viewState = [];
 if options.ShowScene
-    fig = figure('Name', 'HairSim: full demo (all regions)', 'Color', 'w');
+    fig = figure('Name', 'RoboHairSim: full demo (all regions)', 'Color', 'w');
     ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0.06, 0.08, 0.88, 0.86]);
     hairsim.hideAxesToolbar(ax);
     axis(ax, 'equal');

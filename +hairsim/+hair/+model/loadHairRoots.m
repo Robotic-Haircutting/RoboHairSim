@@ -1,5 +1,5 @@
 function roots = loadHairRoots(rootsPath)
-%LOADHAIRROOTS Load HairSim scalp-root data from a JSON file.
+%LOADHAIRROOTS Load RoboHairSim scalp-root data from a JSON file.
 
 arguments
     rootsPath (1, :) char

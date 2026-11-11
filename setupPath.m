@@ -1,6 +1,6 @@
 function setupPath()
-%SETUPPATH Put this copy of HairSim, and only this one, on the MATLAB path.
-%   Every copy of HairSim (e.g. a release and a development checkout)
+%SETUPPATH Put this copy of RoboHairSim, and only this one, on the MATLAB path.
+%   Every copy of RoboHairSim (e.g. a release and a development checkout)
 %   defines the +hairsim package; with two on the path MATLAB silently
 %   uses whichever comes first. This removes every other folder that
 %   provides +hairsim (and everything under its root), then adds this

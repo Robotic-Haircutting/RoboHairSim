@@ -1,6 +1,6 @@
-# HairSim
+# RoboHairSim
 
-**HairSim is a MATLAB-based simulation platform for robotic haircutting
+**RoboHairSim is a MATLAB-based simulation platform for robotic haircutting
 research.** It integrates head and hair modeling, directional clipper cutting,
 toolpath planning, and robot execution in an interactive environment. The
 platform supports automated haircutting, keyboard teleoperation, and session
@@ -14,11 +14,13 @@ rail around the head.
 
 ## Demo
 
-<!-- TODO: add media under docs/media/ and link it here -->
+| Autonomous and teleoperated haircutting |
+|---|
+| ![Autonomous and teleoperated haircutting on the floor rail](docs/media/demo.gif) |
 
-| Automated haircut | Keyboard teleoperation | Before / after |
-|---|---|---|
-| *(GIF: `runFullDemo`, all five regions)* | *(GIF: `runTeleop`)* | *(screenshots)* |
+| Before haircutting | After haircutting (5 mm guard) |
+|---|---|
+| ![Simulated hair before haircutting](docs/media/before_haircutting.gif) | ![Simulated hair after a 5 mm haircut](docs/media/after_haircutting_5mm.gif) |
 
 ## Features
 
@@ -143,7 +145,7 @@ result = replayBundle("outputs/fullhead_bundle.mat");   % no planning
 | `PlannerName` | all entries | any registered planner (built in: `"camClipperAgainstFlow"`) |
 | `DataDir` | all entries | folder with your own head and hair data |
 
-## Extending HairSim for research
+## Extending RoboHairSim for research
 
 The `hairsim.api` package exposes the whole pipeline without the GUI:
 
@@ -275,13 +277,15 @@ runReleaseTests('Quick', true)   % about 3 min, skips the full region plan
 
 ## Citation, acknowledgements and license
 
-**Citation.** A paper describing HairSim is in preparation. Until then,
-please cite this repository:
+**Citation.** A paper describing RoboHairSim, "RoboHairSim: A
+Human-Machine Platform for Planning and Evaluating Robotic Haircutting", has
+been submitted for publication. Until it is published, please cite this
+repository:
 
 ```bibtex
-@misc{hairsim,
-  title  = {HairSim: A Simulation Platform for Robotic Haircutting},
-  note   = {https://github.com/<org>/HairSim},
+@misc{robohairsim,
+  title  = {RoboHairSim: A Human-Machine Platform for Planning and Evaluating Robotic Haircutting},
+  howpublished = {\url{https://github.com/Robotic-Haircutting/RoboHairSim}},
   year   = {2026}
 }
 ```

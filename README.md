@@ -96,14 +96,16 @@ Click the 3D view first. The clipper rides on the scalp.
 
 | Key | Action |
 |---|---|
-| W / ↑ | push forward along the feed (the only move that cuts) |
-| S / ↓ | pull back |
-| A D / ← → | slide sideways |
-| Q / E | turn the feed left / right (15°) |
-| G | turn the feed against the hair flow under the clipper |
-| R / F | lift / lower 10 mm (lowest = touching the scalp) |
-| Z / X | roll the blade for edge cuts (up to ±30°) |
-| hold Space | cut |
+| W / ↑ | move forward |
+| S / ↓ | move back |
+| A D / ← → | move left / right |
+| Q / E | turn left / right |
+| G | turn to face against the hair |
+| R / F | lift / lower |
+| C / V | move the robot along the rail (Rail setup only) |
+| hold Space + W | cut |
+
+Note: directions are from the clipper's point of view, not the screen's.
 
 Poses are built and checked with the same code the planner uses. A move that
 would hit the head or self-collide is refused, and the readout shows why. The
